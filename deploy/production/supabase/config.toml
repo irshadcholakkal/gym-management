@@ -1,0 +1,11 @@
+# Deliberately scoped to Auth redirect settings. Other hosted settings remain unchanged.
+project_id = "gympro-uae-production"
+
+[auth]
+site_url = "https://gym-management-indol.vercel.app"
+additional_redirect_urls = [
+  "https://gym-management-indol.vercel.app/",
+  "https://gym-management-indol.vercel.app/#/recovery",
+  "https://gym-management-indol.vercel.app/**",
+  "http://localhost:8080/**"
+]

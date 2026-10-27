@@ -56,5 +56,6 @@ build-web.log
 artifacts/
 .vercel/
 .vercel-flutter/
+**/supabase/.temp/
 .vercel
 .env*

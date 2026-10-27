@@ -22,6 +22,8 @@ Running without configuration displays an actionable setup page. It does not byp
 
 ## Supabase setup
 
+Hosted email redirects are maintained separately in [deploy/production](deploy/production/README.md). Use that scoped configuration for production Auth URLs; the root Supabase configuration intentionally retains localhost for local development.
+
 1. Install the Supabase CLI and Docker for local hosted-service testing, or link a development Supabase project.
 2. Apply all files in `supabase/migrations` in lexical order (`supabase db reset` locally, or `supabase db push` against a linked development project).
 3. Create an owner account through Supabase Auth administration. In the SQL editor, run `select public.bootstrap_gym('OWNER_AUTH_UUID'::uuid, 'Your gym name');`. This operation is inaccessible to ordinary authenticated clients.
