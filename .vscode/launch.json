@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "GymPro UAE (Supabase from .env)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "deviceId": "chrome",
+      "preLaunchTask": "GymPro: load public environment",
+      "toolArgs": ["--web-port", "8080", "--dart-define-from-file=config.local.json"]
+    }
+  ]
+}

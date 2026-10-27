@@ -1,0 +1,28 @@
+# Implementation and acceptance ledger
+
+This ledger deliberately distinguishes runnable source, local verification, and deployment. The full requested production acceptance remains incomplete.
+
+| Phase | Implemented source | Remaining acceptance or scope |
+|---|---|---|
+| 1 | Flutter Material 3 pastel theme, responsive navigation, Supabase auth repository/session Cubit, login/reset/recovery, GoRouter role guards, unconfigured setup | Live SMTP/reset/invitation callback and token-refresh browser tests |
+| 2 | Required tenant schema, branch-safe compound foreign keys, read policies, restricted RPC writes, employee invitation/deactivation, private channels, operator bootstrap | Employee editing, custom permission configuration and branch-assignment UI; hosted service checks |
+| 3 | SQLite WASM/worker, native test database, scoped entity cache, outbox/checkpoints, atomic optimistic member/package writes, version conflicts, retries/backoff, durable server confirmation IDs, online/resume/periodic sync, paginated delta pull and Broadcast invalidation | Automatic replay of protected financial commands after restart; storage capability/persistence diagnostics; field-level safe merging; richer conflict comparison |
+| 4 | Search/filter/page directories, member and package forms, statuses/archival, member details with related financial/membership records, generated member model | Photo upload/crop UI; optional demographic/emergency/WhatsApp fields; selecting initial package within the member registration form (currently a separate membership action) |
+| 5 | Calendar-aware subscriptions, renewal, pause/resume, overlap rejection, extensions/cancellation, immediate prorated package change and next-renewal scheduling, audit history | Intended-resume picker; richer pause-history and provisional-expiry UI; configurable downgrade/proration policies and tax-aware package-change review |
+| 6 | Transactional invoices from subscriptions/adjustments, partial/manual collections, outstanding balance, durable payment idempotency, full reversal RPC, voided receipts, official PDF preview/print/share/history | Standalone invoice and discount editors; general credit-note/refund allocation UI; multiple-invoice payment allocation UI; offline provisional financial acknowledgments; logo/Unicode font assets and polished receipt corrections/reissue workflow |
+| 7 | Private authenticated Realtime invalidations with durable pull, in-app notifications/read status, seven-day Cron reminders, superseding old notifications on transitions, VAPID registration/service-worker push, server delivery claim/retry/logging | Hosted two-browser verification; delivery verification; preference/disable UI; optional 3-day/1-day/overdue reminders; automatic push-job deployment |
+| 8 | Install manifest/custom icons, one versioned shell/push worker, generated cache asset list, bundled SQLite/CanvasKit, update prompt, responsive shell, analysis/unit/widget/PostgreSQL/browser test tooling | Authenticated browser E2E across all scenarios, Safari/Firefox/Edge/install/update checks, deployment, performance/accessibility audit, external security review |
+
+The local cache uses a single indexed, scoped entity table with separate kinds for members, employees, packages, subscriptions, pauses, invoices, payments, allocations, credits, reversals, receipts and notifications, rather than separate generated Drift tables for every entity. Only the member model currently uses generated Freezed serialization. UI source is partly shared in `lib/core/workspace.dart`; it needs further extraction into feature-owned presentations as workflows expand.
+
+Current client calendar presentation is UAE-default (`UTC+04:00`) and currency-entry defaults to AED. The server stores gym currency/timezone and schedules/calculates boundaries using each gym timezone. A complete configurable multi-timezone UI is still pending. Local unlock is intentionally denied when server authorization cannot be verified; there is no implemented configurable offline-unlock policy.
+
+Package changes preserve the original paid invoice and post an additional charge invoice. Downgrade credits are capped by received, non-reversed allocations minus earlier credits and remaining receivables; cash refunds require an explicit reversal. Full tax-aware prorating and a generalized customer credit ledger remain outside the implemented financial policy. These boundaries must be resolved before production financial use.
+
+## Local checks
+
+The executable commands are in README. Verified locally on October 25, 2026: Flutter analysis reported no issues; 21 Flutter tests passed; all seven migrations applied in PostgreSQL WASM and 16 integration checks passed; Chrome's two shell checks passed; a release web build succeeded. Browser checks assert cached-shell reopening with networking disabled and desktop/mobile setup without uncaught errors. Auth, Realtime and Storage service calls are adapters in the PostgreSQL tests.
+
+Flutter tests cover domain boundaries, monetary precision, role access, atomic/scoped outbox storage, durable payment IDs across repository recreation, PDF validity/provisional rejection, and mobile/desktop setup. The browser smoke suite uses actual Chrome and asserts app-shell/SQLite precaching and offline reopening. Neither test suite is a substitute for hosted acceptance of invitations, token refresh, two-session Realtime, or actual push delivery.
+
+No hosted project was configured, migrated or deployed by this implementation. No production data was changed. No live invitation or push was sent.
