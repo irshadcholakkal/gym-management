@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto';
 const db = new PGlite({ extensions: { btree_gist } });
 await db.exec(`
   create role anon; create role authenticated; create role service_role bypassrls;
-  create schema auth; create table auth.users(id uuid primary key);
+  create schema auth; create table auth.users(id uuid primary key,email_confirmed_at timestamptz);
   create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
   grant usage on schema auth to authenticated; grant execute on function auth.uid() to authenticated;
   create schema realtime; create table realtime.messages(extension text);
@@ -142,6 +142,30 @@ await check('Seven-day reminder deduplicates and pause supersedes stale reminder
   await login(a);
   await rpc('transition_subscription',[gymA,result.subscription.id,result.subscription.version,'pause',today,'Travel',randomUUID(),0]);
   assert.ok((await db.query('select superseded_at from public.notifications where subscription_id=$1',[result.subscription.id])).rows[0].superseded_at);
+});
+await check('Verified account can create only its own new gym, with idempotent retries',async()=>{
+  await db.exec('reset role');
+  const owner=randomUUID();
+  await db.query('insert into auth.users(id,email_confirmed_at) values($1,now())',[owner]);
+  await login(owner);
+  const ownGym=await rpc('create_own_gym',['New gym']);
+  assert.equal(await rpc('create_own_gym',['Retry after timeout']),ownGym);
+  const memberships=(await db.query('select gym_id,role from public.gym_users')).rows;
+  assert.equal(memberships.length,1); assert.equal(memberships[0].gym_id,ownGym);assert.equal(memberships[0].role,'owner');
+  assert.equal((await db.query('select * from public.members where gym_id=$1',[gymA])).rows.length,0);
+});
+await check('Unconfirmed and anonymous accounts cannot create gyms',async()=>{
+  await db.exec('reset role');
+  const unconfirmed=randomUUID(); await db.query('insert into auth.users(id) values($1)',[unconfirmed]);
+  await login(unconfirmed);
+  await assert.rejects(()=>rpc('create_own_gym',['Forbidden']),e=>e.code==='42501');
+  await db.exec('reset role'); await db.query("select set_config('request.jwt.claim.sub','',false)");await db.exec('set role anon');
+  await assert.rejects(()=>rpc('create_own_gym',['Forbidden']),e=>e.code==='42501');
+});
+await check('Existing staff cannot promote themselves through owner onboarding',async()=>{
+  await db.exec('reset role');await db.query('update auth.users set email_confirmed_at=now() where id=$1',[trainer]);
+  await login(trainer);
+  await assert.rejects(()=>rpc('create_own_gym',['Forbidden']),e=>e.code==='42501');
 });
 console.log(`${passed} database integration checks passed. Hosted Auth, Realtime and Storage were stubbed.`);
 await db.close();

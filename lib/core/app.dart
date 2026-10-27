@@ -9,6 +9,7 @@ import '../features/auth/data/auth_repository.dart';
 import '../features/auth/presentation/login_page.dart';
 import '../features/auth/presentation/session_cubit.dart';
 import '../features/auth/presentation/signup_page.dart';
+import '../features/auth/presentation/gym_setup_page.dart';
 import 'theme.dart';
 import 'workspace.dart';
 
@@ -50,6 +51,9 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
         if (session.status == SessionStatus.recovery) {
           return path == '/recovery' ? null : '/recovery';
         }
+        if (session.status == SessionStatus.needsGym) {
+          return path == '/onboarding' ? null : '/onboarding';
+        }
         if (session.status == SessionStatus.denied) {
           return path == '/access' ? null : '/access';
         }
@@ -62,6 +66,7 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
           '/register',
           '/setup',
           '/access',
+          '/onboarding',
         ].contains(path)) {
           return '/';
         }
@@ -69,6 +74,14 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
         return null;
       },
       routes: [
+        GoRoute(
+          path: '/onboarding',
+          builder: (_, _) => GymSetupPage(
+            repository: _auth!,
+            onComplete: _session!.restore,
+            onSignOut: _session!.signOut,
+          ),
+        ),
         GoRoute(path: '/setup', builder: (_, _) => const SetupPage()),
         GoRoute(
           path: '/loading',

@@ -6,7 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/auth_repository.dart';
 import '../domain/access.dart';
 
-enum SessionStatus { loading, signedOut, signedIn, recovery, denied }
+enum SessionStatus { loading, signedOut, signedIn, recovery, needsGym, denied }
 
 class SessionState {
   const SessionState(this.status, {this.access, this.message});
@@ -45,6 +45,17 @@ class SessionCubit extends Cubit<SessionState> {
       final access = await repository.access();
       if (!isClosed && generation == _generation) {
         emit(SessionState(SessionStatus.signedIn, access: access));
+      }
+    } on NoGymAccessException {
+      if (!isClosed && generation == _generation) {
+        emit(const SessionState(SessionStatus.needsGym));
+      }
+    } on PostgrestException catch (error) {
+      if (!isClosed && generation == _generation) {
+        final message = ['PGRST205', '42P01', 'PGRST202'].contains(error.code)
+            ? 'The gym database is not configured yet. Contact the app administrator to apply the database migrations.'
+            : 'The server could not authorize gym access. Please retry or contact your administrator.';
+        emit(SessionState(SessionStatus.denied, message: message));
       }
     } on AuthException catch (error) {
       if (!isClosed && generation == _generation) {

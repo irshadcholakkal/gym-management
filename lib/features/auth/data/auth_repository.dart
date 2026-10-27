@@ -16,11 +16,24 @@ abstract interface class AuthRepository {
   Future<void> signOut();
   Future<void> resetPassword(String email, String? redirect);
   Future<GymAccess> access();
+  Future<void> createGym(String name);
+}
+
+class NoGymAccessException extends AuthException {
+  const NoGymAccessException()
+    : super(
+        'Set up a new gym or ask your administrator for a workspace invitation.',
+      );
 }
 
 class SupabaseAuthRepository implements AuthRepository {
   SupabaseAuthRepository(this.client);
   final SupabaseClient client;
+  @override
+  Future<void> createGym(String name) async {
+    await client.rpc('create_own_gym', params: {'p_name': name.trim()});
+  }
+
   @override
   Stream<AuthState> get changes => client.auth.onAuthStateChange;
   @override
@@ -68,9 +81,17 @@ class SupabaseAuthRepository implements AuthRepository {
         .order('created_at')
         .limit(1);
     if (rows.isEmpty) {
-      throw const AuthException(
-        'Your account has no active gym access. Contact your administrator.',
-      );
+      final memberships = await client
+          .from('gym_users')
+          .select('id')
+          .eq('user_id', user.id)
+          .limit(1);
+      if (memberships.isNotEmpty) {
+        throw const AuthException(
+          'Your gym access is inactive. Contact your gym administrator.',
+        );
+      }
+      throw const NoGymAccessException();
     }
     final row = rows.first;
     return GymAccess(
