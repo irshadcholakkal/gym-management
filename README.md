@@ -25,7 +25,7 @@ Running without configuration displays an actionable setup page. It does not byp
 1. Install the Supabase CLI and Docker for local hosted-service testing, or link a development Supabase project.
 2. Apply all files in `supabase/migrations` in lexical order (`supabase db reset` locally, or `supabase db push` against a linked development project).
 3. Create an owner account through Supabase Auth administration. In the SQL editor, run `select public.bootstrap_gym('OWNER_AUTH_UUID'::uuid, 'Your gym name');`. This operation is inaccessible to ordinary authenticated clients.
-4. Configure Auth Site URL and redirect allow-list for the application's actual HTTPS URL and `/#/recovery` callback. Disable public signup; configure production SMTP. Local invitation email is inspected in Supabase's local mail UI.
+4. Configure Auth Site URL and redirect allow-list for the application's actual HTTPS URL and `/#/recovery` callback. Enable email signup and email confirmation for the Create account flow; configure production SMTP. Registration creates only an Auth account; tenant membership and roles must be assigned by an administrator. Local invitation email is inspected in Supabase's local mail UI.
 5. Disable public Realtime channels in Supabase Realtime settings. The application subscribes to private `gym:<uuid>` channels; RLS permits only active tenant members to receive generic invalidations.
 6. Deploy `invite-employee` and `process-reminders`. Set `APP_ORIGIN`, `REMINDER_JOB_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` (a valid `mailto:` contact) in Edge secrets. Supabase supplies the server-side project/service-role environment.
 7. Seven-day in-app reminders are scheduled hourly when `pg_cron` is available. For push delivery, create the two named Vault secrets and execute [deploy_jobs.sql](supabase/deploy_jobs.sql). Keep the app open only for client synchronization; server reminder generation does not depend on an open browser.
@@ -33,6 +33,14 @@ Running without configuration displays an actionable setup page. It does not byp
 Employee invitations use a server-side Auth administration call followed by a checked transactional gym attachment. If attachment fails after the email is sent, the function reports a reconciliation error and never deletes a potentially shared Auth identity. Creating a gym owner is a separate operator workflow.
 
 ## Build and host the PWA
+
+### Vercel (Git deployment)
+
+The root `vercel.json` configures Flutter rather than treating this repository as an already-built static site. Set **Root Directory** to the repository root and **Framework Preset** to **Other**. The checked-in build command is `node tool/vercel_build.mjs`; its output is `build/web`. The script downloads the pinned Flutter 3.47.2 SDK, resolves dependencies, builds the web application, and prepares the versioned offline worker. Do not set the root directory to `web` or `build/web`.
+
+In Vercel **Settings → Environment Variables**, add `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` for Production (and Preview if needed). Set `AUTH_REDIRECT_URL` to `https://gym-management-indol.vercel.app/#/recovery`; `VAPID_PUBLIC_KEY` is optional until push is configured. Then redeploy. Local `.env` and `config.local.json` are ignored and are not automatically available to Vercel builds. Server secret keys must never be compiled into Flutter; the build explicitly exports only public settings.
+
+The deployment configuration serves the generated `index.html` for application routes, preserves real static assets, and sets revalidation headers for safe PWA updates. A missing asset with a filename extension still returns 404 instead of accidentally serving HTML as JavaScript/WASM. A Vercel `404 NOT_FOUND` at `/` occurs before Flutter runs; ensure the deployment build succeeded and is serving the configured output directory.
 
 ```powershell
 ./tool/build_web.ps1 -SupabaseUrl 'https://PROJECT.supabase.co' `
@@ -77,5 +85,4 @@ Delta cursors are durable. Every application write acquires the tenant advisory 
 Local caches/outboxes are isolated by gym, authenticated user, and role. Offline member/package changes and outbox entries are atomic. Conflicts retain local data and require review; the interface can discard an uncommitted local record and fetch the server version. Financial confirmation commands cannot be changed into ordinary outbox retries. They retain their request identity until the server explicitly confirms them or definitively rejects the transaction.
 
 Official reference APIs consulted: [Supabase Flutter](https://supabase.com/docs/reference/dart/introduction), [Drift Web](https://drift.simonbinder.eu/platforms/web/), [GoRouter](https://pub.dev/packages/go_router), [Flutter BLoC](https://pub.dev/packages/flutter_bloc), [Freezed](https://pub.dev/packages/freezed), [Realtime authorization](https://supabase.com/docs/guides/realtime/authorization), [printing](https://pub.dev/packages/printing), and [PGlite extensions](https://pglite.dev/extensions/).
-#   g y m - m a n a g e m e n t  
- 
+# gym-management

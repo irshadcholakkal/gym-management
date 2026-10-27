@@ -14,7 +14,7 @@ major_version = 17
 enabled = true
 site_url = "http://localhost:8080"
 additional_redirect_urls = ["http://localhost:8080/**"]
-enable_signup = false
+enable_signup = true
 
 [functions.invite-employee]
 verify_jwt = true

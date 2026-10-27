@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../features/auth/data/auth_repository.dart';
 import '../features/auth/presentation/login_page.dart';
 import '../features/auth/presentation/session_cubit.dart';
+import '../features/auth/presentation/signup_page.dart';
 import 'theme.dart';
 import 'workspace.dart';
 
@@ -53,9 +54,15 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
           return path == '/access' ? null : '/access';
         }
         if (session.status != SessionStatus.signedIn) {
-          return path == '/login' ? null : '/login';
+          return path == '/login' || path == '/register' ? null : '/login';
         }
-        if (['/loading', '/login', '/setup', '/access'].contains(path)) {
+        if ([
+          '/loading',
+          '/login',
+          '/register',
+          '/setup',
+          '/access',
+        ].contains(path)) {
           return '/';
         }
         if (!session.access!.allows(path)) return '/';
@@ -70,7 +77,17 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
         ),
         GoRoute(
           path: '/login',
-          builder: (_, _) => LoginPage(repository: _auth!),
+          builder: (context, _) => LoginPage(
+            repository: _auth!,
+            onCreateAccount: () => context.go('/register'),
+          ),
+        ),
+        GoRoute(
+          path: '/register',
+          builder: (context, _) => SignupPage(
+            repository: _auth!,
+            onSignIn: () => context.go('/login'),
+          ),
         ),
         GoRoute(
           path: '/recovery',

@@ -25,4 +25,8 @@ The executable commands are in README. Verified locally on October 25, 2026: Flu
 
 Flutter tests cover domain boundaries, monetary precision, role access, atomic/scoped outbox storage, durable payment IDs across repository recreation, PDF validity/provisional rejection, and mobile/desktop setup. The browser smoke suite uses actual Chrome and asserts app-shell/SQLite precaching and offline reopening. Neither test suite is a substitute for hosted acceptance of invitations, token refresh, two-session Realtime, or actual push delivery.
 
-No hosted project was configured, migrated or deployed by this implementation. No production data was changed. No live invitation or push was sent.
+The Flutter frontend was deployed to https://gym-management-indol.vercel.app/ on October 27, 2026 after correcting Vercel's missing Flutter build/output configuration. Production public Supabase environment variables were configured. HTTP checks passed for the root, application route, JavaScript, SQLite WASM/worker and service worker; Chrome rendered the sign-in form without uncaught errors. Deployment source changes still need committing/pushing for future Git-triggered deployments.
+
+The Supabase database migrations and Edge Functions have not been deployed by this implementation. No production business data was changed. No live invitation or push was sent.
+
+October 27 registration update: the login screen includes a Create account route with full name, normalized email, a minimum 12-character password, password confirmation, server-error feedback and email-confirmation guidance. Supabase public Auth settings were checked: email signup is enabled and confirmation is required. Registration never assigns tenant membership or system roles. Four registration widget tests passed as part of the 25-test Flutter suite. No test account or confirmation email was created during verification.

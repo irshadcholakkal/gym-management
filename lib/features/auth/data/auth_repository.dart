@@ -7,6 +7,12 @@ abstract interface class AuthRepository {
   bool get signedIn;
   bool get requiresPasswordSetup;
   Future<void> signIn(String email, String password);
+  Future<bool> signUp({
+    required String fullName,
+    required String email,
+    required String password,
+    String? redirect,
+  });
   Future<void> signOut();
   Future<void> resetPassword(String email, String? redirect);
   Future<GymAccess> access();
@@ -32,6 +38,22 @@ class SupabaseAuthRepository implements AuthRepository {
 
   @override
   Future<void> signOut() => client.auth.signOut();
+  @override
+  Future<bool> signUp({
+    required String fullName,
+    required String email,
+    required String password,
+    String? redirect,
+  }) async {
+    final response = await client.auth.signUp(
+      email: email.trim().toLowerCase(),
+      password: password,
+      data: {'full_name': fullName.trim()},
+      emailRedirectTo: redirect,
+    );
+    return response.session == null;
+  }
+
   @override
   Future<void> resetPassword(String email, String? redirect) => client.auth
       .resetPasswordForEmail(email.trim().toLowerCase(), redirectTo: redirect);

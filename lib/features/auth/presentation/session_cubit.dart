@@ -46,6 +46,10 @@ class SessionCubit extends Cubit<SessionState> {
       if (!isClosed && generation == _generation) {
         emit(SessionState(SessionStatus.signedIn, access: access));
       }
+    } on AuthException catch (error) {
+      if (!isClosed && generation == _generation) {
+        emit(SessionState(SessionStatus.denied, message: error.message));
+      }
     } catch (_) {
       if (!isClosed && generation == _generation) {
         emit(

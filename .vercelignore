@@ -1,0 +1,15 @@
+.env
+.env.*
+config.local.json
+.git
+.dart_tool
+.vercel-flutter
+build
+artifacts
+**/node_modules
+*.log
+android
+ios
+linux
+macos
+windows

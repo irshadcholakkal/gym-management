@@ -54,3 +54,7 @@ config.local.json
 !.env.example
 build-web.log
 artifacts/
+.vercel/
+.vercel-flutter/
+.vercel
+.env*

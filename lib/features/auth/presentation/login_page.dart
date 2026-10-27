@@ -6,9 +6,15 @@ import '../../../core/theme.dart';
 import '../data/auth_repository.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, required this.repository, this.recoveryClient});
+  const LoginPage({
+    super.key,
+    required this.repository,
+    this.recoveryClient,
+    this.onCreateAccount,
+  });
   final AuthRepository repository;
   final SupabaseClient? recoveryClient;
+  final VoidCallback? onCreateAccount;
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
@@ -191,6 +197,14 @@ class _LoginPageState extends State<LoginPage> {
                           child: Text(
                             _reset ? 'Back to sign in' : 'Forgot password?',
                           ),
+                        ),
+                      const SizedBox(height: 16),
+                      if (!recovery &&
+                          !_reset &&
+                          widget.onCreateAccount != null)
+                        OutlinedButton(
+                          onPressed: _busy ? null : widget.onCreateAccount,
+                          child: const Text('Create account'),
                         ),
                       const SizedBox(height: 16),
                       const Text(
