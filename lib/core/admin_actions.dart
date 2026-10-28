@@ -9,6 +9,7 @@ import '../features/subscriptions/data/operations_repository.dart';
 import 'database/database.dart';
 import 'sync/sync_engine.dart';
 import 'sync/workspace_repository.dart';
+import 'operation_error.dart';
 
 Future<void> showAdjustment(
   BuildContext context,
@@ -164,19 +165,28 @@ Future<void> showAdjustment(
                       }
                       await sync.sync();
                       if (dialogContext.mounted) Navigator.pop(dialogContext);
-                    } catch (_) {
+                    } catch (failure) {
+                      if (!dialogContext.mounted) return;
                       update(() {
                         busy = false;
-                        error = 'The server did not confirm this change. Check permissions, membership status, or connectivity. Retry here to retain the operation ID.';
+                        if (definitiveOperationError(failure) ||
+                            failure is StateError) {
+                          attempted = false;
+                        }
+                        error = operationErrorMessage(failure);
                       });
                     }
                   },
             child: Text(
               busy
-                  ? 'Confirming…'
+                  ? 'Saving…'
                   : attempted
-                  ? 'Retry same operation'
-                  : 'Confirm change',
+                  ? 'Retry request'
+                  : packageChange
+                  ? 'Change package'
+                  : deactivate
+                  ? 'Deactivate employee'
+                  : 'Reverse payment',
             ),
           ),
         ],

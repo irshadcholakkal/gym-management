@@ -53,6 +53,20 @@ abstract final class ReceiptPdf {
           pw.TableHelper.fromTextArray(
             headers: ['Description', 'Amount'],
             data: [
+              [
+                'Subtotal before discount',
+                Money.format(
+                  data['subtotal_minor'] as int? ??
+                      (data['total_minor'] as int? ?? 0) -
+                          (data['tax_minor'] as int? ?? 0),
+                  currency,
+                ),
+              ],
+              if ((data['discount_minor'] as int? ?? 0) > 0)
+                [
+                  'Special discount',
+                  Money.format(-(data['discount_minor'] as int), currency),
+                ],
               ['Invoice total (including tax)', money('total_minor')],
               ['Tax included', money('tax_minor')],
               ['Payment received', money('paid_minor')],
@@ -64,8 +78,10 @@ abstract final class ReceiptPdf {
             cellPadding: const pw.EdgeInsets.all(12),
           ),
           pw.SizedBox(height: 24),
+          if ((data['discount_minor'] as int? ?? 0) > 0)
+            pw.Text('Discount reason: ${data['discount_reason'] ?? ''}'),
           pw.Text(
-            'Method: ${data['method']}\nReference: ${data['reference'] ?? ''}\nPayment date: ${data['payment_date']}\nAuthorized issuer: ${data['issuer']}',
+            'Method: ${data['method']}\nReference: ${data['reference'] ?? ''}\nPayment date: ${data['payment_date']}\nAuthorized issuer: ${RegExp(r'^[0-9a-f-]{36}$', caseSensitive: false).hasMatch(data['issuer']?.toString() ?? '') ? 'Authorized team member' : data['issuer'] ?? 'Team member'}',
           ),
           pw.SizedBox(height: 32),
           pw.Text(

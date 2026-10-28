@@ -71,6 +71,8 @@ The database suite executes migrations and RPCs in PostgreSQL WASM (PGlite), wit
 
 ## Code map and invariants
 
+Membership creation and the dedicated **Renew membership** action support an optional **Special discount** amount and required reason for owners, admins and managers. Discounts apply to the membership price before tax, not the enrollment fee; the original package price remains in the snapshot. Invoices/receipts preserve the discount, and **Discounts given this month** totals discounts granted on non-void invoices in the current Dubai calendar month. Resume paused memberships before scheduling a renewal. The schema change is in `202610280001_membership_discounts.sql`.
+
 - `lib/core`: application/router, design system, scoped local database, optimistic repository, synchronization, durable server command identities, shared directory/detail/editor widgets.
 - `lib/features/auth`: Supabase authentication repository, session Cubit, role access, login/reset/recovery forms.
 - `lib/features/members`: generated Freezed/JSON member model.

@@ -7,11 +7,14 @@ import 'package:printing/printing.dart';
 import 'package:uuid/uuid.dart';
 
 import '../features/payments/domain/money.dart';
+import '../features/payments/domain/membership_quote.dart';
 import '../features/receipts/domain/receipt_pdf.dart';
 import '../features/subscriptions/data/operations_repository.dart';
 import 'database/database.dart';
 import 'sync/sync_engine.dart';
 import 'sync/workspace_repository.dart';
+import 'operation_error.dart';
+import 'record_labels.dart';
 
 Future<void> showServerOperation(
   BuildContext context,
@@ -25,6 +28,7 @@ Future<void> showServerOperation(
   final values = record == null
       ? <String, dynamic>{}
       : jsonDecode(record.payload) as Map<String, dynamic>;
+  final renewal = type == 'subscribe' && record?.kind == 'subscriptions';
   final operation = const Uuid()
       .v4(); // Retained across uncertain retries in this dialog.
   final form = GlobalKey<FormState>();
@@ -40,10 +44,20 @@ Future<void> showServerOperation(
       email = TextEditingController(),
       name = TextEditingController(),
       phone = TextEditingController();
+  final discount = TextEditingController(text: '0.00'),
+      discountReason = TextEditingController();
+  if (renewal) {
+    final end = DateTime.tryParse(values['end_exclusive'] as String? ?? '');
+    if (end != null && end.isAfter(DateTime.parse(date.text))) {
+      date.text = end.toIso8601String().substring(0, 10);
+    }
+  }
   var method = 'cash',
       role = 'trainer',
       action = values['status'] == 'paused' ? 'resume' : 'pause';
-  String? member, package, error;
+  String? member = renewal ? values['member_id'] as String? : null,
+      package = renewal ? values['package_id'] as String? : null,
+      error;
   var busy = false, attempted = false;
   final members =
       await (repo.db.select(repo.db.cachedRecords)..where(
@@ -62,6 +76,32 @@ Future<void> showServerOperation(
           ))
           .get();
   if (!context.mounted) return;
+  if (!packages.any(
+    (p) =>
+        p.id == package && (jsonDecode(p.payload) as Map)['status'] == 'active',
+  )) {
+    package = null;
+  }
+  Map selectedPackage() =>
+      packages
+          .where((p) => p.id == package)
+          .map((p) => jsonDecode(p.payload) as Map)
+          .firstOrNull ??
+      {};
+  int discountValue() {
+    try {
+      return Money.parse(discount.text.trim().isEmpty ? '0' : discount.text);
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  MembershipQuote quote() => MembershipQuote(
+    priceMinor: selectedPackage()['price_minor'] as int? ?? 0,
+    enrollmentFeeMinor: selectedPackage()['enrollment_fee_minor'] as int? ?? 0,
+    taxBasisPoints: selectedPackage()['tax_basis_points'] as int? ?? 0,
+    discountMinor: discountValue(),
+  );
   final route = DialogRoute<void>(
     context: context,
     barrierDismissible: false,
@@ -69,7 +109,7 @@ Future<void> showServerOperation(
       builder: (context, update) => AlertDialog(
         title: Text(
           {
-            'subscribe': 'Create or renew membership',
+            'subscribe': renewal ? 'Renew membership' : 'Create membership',
             'pay': 'Record payment',
             'transition': 'Manage membership',
             'invite': 'Invite team member',
@@ -83,12 +123,19 @@ Future<void> showServerOperation(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'This action requires server authorization. Keep this dialog open to safely retry an interrupted request.',
+                  Text(
+                    type == 'subscribe'
+                        ? 'Choose the membership package and review the amount due.'
+                        : type == 'pay'
+                        ? 'Enter the amount actually received from the member.'
+                        : type == 'invite'
+                        ? 'Send a secure invitation to join your gym.'
+                        : 'Choose the membership action and effective date.',
                   ),
                   const SizedBox(height: 16),
                   if (type == 'subscribe') ...[
                     DropdownButtonFormField<String>(
+                      initialValue: member,
                       decoration: const InputDecoration(labelText: 'Member'),
                       items: [
                         for (final r in members)
@@ -100,12 +147,15 @@ Future<void> showServerOperation(
                             ),
                           ),
                       ],
-                      onChanged: attempted ? null : (v) => member = v,
+                      onChanged: attempted || renewal
+                          ? null
+                          : (v) => update(() => member = v),
                       validator: (v) =>
                           v == null ? 'Select a synced member' : null,
                     ),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(
+                      initialValue: package,
                       decoration: const InputDecoration(labelText: 'Package'),
                       items: [
                         for (final r in packages.where(
@@ -120,18 +170,107 @@ Future<void> showServerOperation(
                             ),
                           ),
                       ],
-                      onChanged: attempted ? null : (v) => package = v,
+                      onChanged: attempted
+                          ? null
+                          : (v) => update(() => package = v),
                       validator: (v) =>
                           v == null ? 'Select an active synced package' : null,
                     ),
+                    const SizedBox(height: 14),
+                    if (repo.access.canDiscount) ...[
+                      TextFormField(
+                        controller: discount,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        enabled: !attempted,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: InputDecoration(
+                          labelText:
+                              'Special discount (${selectedPackage()['currency'] ?? 'AED'})',
+                          helperText: 'Optional. Applied to the package price before tax.',
+                        ),
+                        onChanged: (_) => update(() {}),
+                        validator: (v) {
+                          try {
+                            final value = Money.parse(
+                              v?.trim().isEmpty ?? true ? '0' : v!,
+                            );
+                            return value >
+                                    (selectedPackage()['price_minor'] as int? ??
+                                        0)
+                                ? 'Discount cannot exceed the package price'
+                                : null;
+                          } catch (_) {
+                            return 'Enter an amount with at most two decimal places';
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      if (discountValue() > 0) ...[
+                        TextFormField(
+                          controller: discountReason,
+                          enabled: !attempted,
+                          maxLength: 500,
+                          decoration: const InputDecoration(
+                            labelText: 'Discount reason',
+                          ),
+                          validator: (v) => (v?.trim().isEmpty ?? true)
+                              ? 'Enter a reason for this discount'
+                              : null,
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+                    ],
+                    if (package != null &&
+                        discountValue() <=
+                            (selectedPackage()['price_minor'] as int? ?? 0))
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF7F2),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Package price: ${Money.format(quote().priceMinor, selectedPackage()['currency'] as String? ?? 'AED')}',
+                            ),
+                            if (quote().enrollmentFeeMinor > 0)
+                              Text(
+                                'Enrollment fee: ${Money.format(quote().enrollmentFeeMinor, selectedPackage()['currency'] as String? ?? 'AED')}',
+                              ),
+                            if (quote().discountMinor > 0)
+                              Text(
+                                'Special discount: ${Money.format(quote().discountMinor, selectedPackage()['currency'] as String? ?? 'AED')}',
+                              ),
+                            if (quote().taxMinor > 0)
+                              Text(
+                                'Tax: ${Money.format(quote().taxMinor, selectedPackage()['currency'] as String? ?? 'AED')}',
+                              ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Total due: ${Money.format(quote().totalMinor, selectedPackage()['currency'] as String? ?? 'AED')}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     const SizedBox(height: 14),
                   ],
                   if (type == 'subscribe' || type == 'transition')
                     TextFormField(
                       controller: date,
                       enabled: !attempted,
-                      decoration: const InputDecoration(
-                        labelText: 'Calendar date (YYYY-MM-DD)',
+                      decoration: InputDecoration(
+                        labelText: type == 'subscribe'
+                            ? 'Membership start date'
+                            : 'Effective date',
+                        helperText: 'YYYY-MM-DD',
                       ),
                       validator: (v) {
                         final parsed = DateTime.tryParse(v ?? '');
@@ -152,7 +291,10 @@ Future<void> showServerOperation(
                           'resume',
                           if (repo.access.administer) ...['extend', 'cancel'],
                         ])
-                          DropdownMenuItem(value: a, child: Text(a)),
+                          DropdownMenuItem(
+                            value: a,
+                            child: Text(displayLabel(a)),
+                          ),
                       ],
                       onChanged: attempted
                           ? null
@@ -221,7 +363,7 @@ Future<void> showServerOperation(
                         ])
                           DropdownMenuItem(
                             value: m,
-                            child: Text(m.replaceAll('_', ' ')),
+                            child: Text(displayLabel(m)),
                           ),
                       ],
                       onChanged: attempted ? null : (v) => method = v!,
@@ -271,7 +413,10 @@ Future<void> showServerOperation(
                           'receptionist',
                           'staff',
                         ])
-                          DropdownMenuItem(value: r, child: Text(r)),
+                          DropdownMenuItem(
+                            value: r,
+                            child: Text(displayLabel(r)),
+                          ),
                       ],
                       onChanged: (v) => role = v!,
                     ),
@@ -313,6 +458,12 @@ Future<void> showServerOperation(
                             package!,
                             date.text,
                             operation,
+                            discountMinor: repo.access.canDiscount
+                                ? discountValue()
+                                : 0,
+                            discountReason: repo.access.canDiscount
+                                ? discountReason.text.trim()
+                                : '',
                           );
                         case 'transition':
                           await operations.transition(
@@ -364,19 +515,31 @@ Future<void> showServerOperation(
                           ),
                         );
                       }
-                    } catch (_) {
+                    } catch (failure) {
+                      if (!dialogContext.mounted) return;
                       update(() {
                         busy = false;
-                        error = 'The server did not confirm this action. Check connectivity, permissions, balance, dates, or version. Retry with this dialog to reuse the same operation ID.';
+                        if (definitiveOperationError(failure) ||
+                            failure is StateError) {
+                          attempted = false;
+                        }
+                        error = operationErrorMessage(failure);
                       });
                     }
                   },
             child: Text(
               busy
-                  ? 'Confirming…'
+                  ? (type == 'invite' ? 'Sending…' : 'Saving…')
                   : attempted
-                  ? 'Retry same operation'
-                  : 'Confirm on server',
+                  ? 'Retry request'
+                  : {
+                      'subscribe': renewal
+                          ? 'Renew membership'
+                          : 'Create membership',
+                      'pay': 'Record payment',
+                      'invite': 'Send invitation',
+                      'transition': '${displayLabel(action)} membership',
+                    }[type]!,
             ),
           ),
         ],
@@ -385,7 +548,16 @@ Future<void> showServerOperation(
   );
   await Navigator.of(parentContext, rootNavigator: true).push(route);
   await route.completed;
-  for (final c in [date, amount, reason, email, name, phone]) {
+  for (final c in [
+    date,
+    amount,
+    reason,
+    email,
+    name,
+    phone,
+    discount,
+    discountReason,
+  ]) {
     c.dispose();
   }
 }

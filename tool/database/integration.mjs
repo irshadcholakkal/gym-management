@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto';
 const db = new PGlite({ extensions: { btree_gist } });
 await db.exec(`
   create role anon; create role authenticated; create role service_role bypassrls;
-  create schema auth; create table auth.users(id uuid primary key,email_confirmed_at timestamptz);
+  create schema auth; create table auth.users(id uuid primary key,email_confirmed_at timestamptz,raw_user_meta_data jsonb not null default '{}');
   create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
   grant usage on schema auth to authenticated; grant execute on function auth.uid() to authenticated;
   create schema realtime; create table realtime.messages(extension text);
@@ -166,6 +166,46 @@ await check('Existing staff cannot promote themselves through owner onboarding',
   await db.exec('reset role');await db.query('update auth.users set email_confirmed_at=now() where id=$1',[trainer]);
   await login(trainer);
   await assert.rejects(()=>rpc('create_own_gym',['Forbidden']),e=>e.code==='42501');
+});
+let discountedSubscription,discountedInvoice,discountMember,discountPackage;
+await check('Special discount is audited, applied before tax and does not change package price',async()=>{
+  await login(a);discountMember=randomUUID();discountPackage=randomUUID();
+  await rpc('apply_sync_operation',[gymA,randomUUID(),'members',discountMember,0,{full_name:'Discount member',phone:'+971501234570',joining_date:today,status:'active'}]);
+  await rpc('apply_sync_operation',[gymA,randomUUID(),'membership_packages',discountPackage,0,{name:'Discount test plan',description:'',duration_value:1,duration_unit:'months',price_minor:30000,currency:'AED',allowed_pause_days:10,status:'active'}]);
+  await db.exec('reset role');await db.query('update public.membership_packages set enrollment_fee_minor=1000,tax_basis_points=500 where id=$1',[discountPackage]);await login(a);
+  const op=randomUUID(),args=[gymA,discountMember,discountPackage,today,op,5000,'Loyalty discount'];
+  const first=await rpc('create_subscription_discounted',args);
+  assert.deepEqual(await rpc('create_subscription_discounted',args),first);
+  discountedSubscription=first.subscription;discountedInvoice=first.invoice;
+  assert.equal(first.invoice.subtotal_minor,31000);assert.equal(first.invoice.discount_minor,5000);assert.equal(first.invoice.tax_minor,1300);assert.equal(first.invoice.total_minor,27300);
+  assert.equal(first.invoice.discount_actor_id,a);assert.ok(first.invoice.discount_granted_at);assert.equal(first.subscription.package_snapshot.price_minor,30000);assert.equal(first.subscription.package_snapshot.agreed_price_minor,25000);
+  await assert.rejects(()=>rpc('create_subscription_discounted',[gymA,discountMember,discountPackage,today,op,6000,'Changed discount']),/Idempotency/);
+  assert.equal((await db.query('select count(*)::int n from public.invoices where subscription_id=$1',[discountedSubscription.id])).rows[0].n,1);
+});
+await check('Partial collection and official receipt retain the granted discount',async()=>{
+  const result=await rpc('post_payment',[gymA,discountedInvoice.id,10000,'cash','Discount payment',randomUUID()]);
+  assert.equal(result.receipt.snapshot.discount_minor,5000);assert.equal(result.receipt.snapshot.subtotal_minor,31000);assert.equal(result.receipt.snapshot.balance_minor,17300);assert.equal(result.receipt.snapshot.issuer,'Team member');
+});
+await check('Renewal can have a different discount while historical invoice stays unchanged',async()=>{
+  const result=await rpc('create_subscription_discounted',[gymA,discountMember,discountPackage,discountedSubscription.end_exclusive,randomUUID(),2500,'Renewal offer']);
+  assert.equal(result.invoice.discount_minor,2500);assert.equal(result.invoice.total_minor,29925);
+  assert.equal((await db.query('select discount_minor::int from public.invoices where id=$1',[discountedInvoice.id])).rows[0].discount_minor,5000);
+  assert.equal((await db.query('select sum(discount_minor)::int n from public.invoices where gym_id=$1',[gymA])).rows[0].n,7500);
+});
+await check('Invalid discounts and discounts without reasons are rejected',async()=>{
+  await assert.rejects(()=>rpc('create_subscription_discounted',[gymA,discountMember,discountPackage,today,randomUUID(),-1,'Invalid']),/negative/);
+  await assert.rejects(()=>rpc('create_subscription_discounted',[gymA,discountMember,discountPackage,today,randomUUID(),30001,'Too much']),/exceed/);
+  await assert.rejects(()=>rpc('create_subscription_discounted',[gymA,discountMember,discountPackage,today,randomUUID(),100,'']),/reason/);
+});
+await check('Paused membership must be resumed before scheduling another membership',async()=>{
+  const paused=(await db.query("select member_id from public.subscriptions where gym_id=$1 and status='paused' limit 1",[gymA])).rows[0];
+  await assert.rejects(()=>rpc('create_subscription_discounted',[gymA,paused.member_id,discountPackage,today,randomUUID(),0,'']),/Resume the current membership/);
+});
+await check('Receptionist cannot grant discounts but can create a full-price membership',async()=>{
+  await db.exec('reset role');const reception=randomUUID(),memberId=randomUUID();await db.query('insert into auth.users(id,email_confirmed_at) values($1,now())',[reception]);await db.query("insert into public.gym_users(gym_id,user_id,role) values($1,$2,'receptionist')",[gymA,reception]);
+  await login(a);await rpc('apply_sync_operation',[gymA,randomUUID(),'members',memberId,0,{full_name:'Full-price member',phone:'+971501234571',joining_date:today,status:'active'}]);await login(reception);
+  await assert.rejects(()=>rpc('create_subscription_discounted',[gymA,memberId,discountPackage,today,randomUUID(),100,'Not authorized']),e=>e.code==='42501');
+  const result=await rpc('create_subscription_discounted',[gymA,memberId,discountPackage,today,randomUUID(),0,'']);assert.equal(result.invoice.total_minor,32550);assert.equal(result.invoice.discount_minor,0);
 });
 console.log(`${passed} database integration checks passed. Hosted Auth, Realtime and Storage were stubbed.`);
 await db.close();

@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../features/subscriptions/data/operations_repository.dart';
 import '../database/database.dart';
 import 'workspace_repository.dart';
+import '../operation_error.dart';
 
 /// Server-only commands still persist their identity before the first request.
 /// This prevents an uncertain collection from becoming a new payment on refresh.
@@ -60,9 +61,7 @@ class DurableOperations implements OperationsRepository {
     try {
       result = await send(id);
     } on PostgrestException catch (e) {
-      if (['P0001', 'P0002', '42501', '40001'].contains(e.code) ||
-          e.code?.startsWith('23') == true ||
-          e.code?.startsWith('22') == true) {
+      if (definitiveOperationError(e)) {
         await (db.delete(db.syncOperations)
               ..where((o) => o.scope.equals(workspace.scope) & o.id.equals(id)))
             .go();
@@ -80,12 +79,31 @@ class DurableOperations implements OperationsRepository {
     String member,
     String package,
     String start,
-    String operation,
-  ) => _command('subscribe', member, operation, {
-    'member': member,
-    'package': package,
-    'start': start,
-  }, (id) => inner.subscribe(member, package, start, id));
+    String operation, {
+    int discountMinor = 0,
+    String discountReason = '',
+  }) => _command(
+    'subscribe',
+    member,
+    operation,
+    {
+      'member': member,
+      'package': package,
+      'start': start,
+      if (discountMinor != 0 || discountReason.trim().isNotEmpty) ...{
+        'discount_minor': discountMinor,
+        'discount_reason': discountReason.trim(),
+      },
+    },
+    (id) => inner.subscribe(
+      member,
+      package,
+      start,
+      id,
+      discountMinor: discountMinor,
+      discountReason: discountReason,
+    ),
+  );
   @override
   Future<Map<String, dynamic>> pay(
     String invoice,

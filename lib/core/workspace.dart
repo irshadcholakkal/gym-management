@@ -20,6 +20,8 @@ import 'package:printing/printing.dart';
 import 'operation_dialogs.dart';
 import 'admin_actions.dart';
 import 'record_details.dart';
+import 'record_labels.dart';
+import '../features/payments/domain/discount_totals.dart';
 import 'database/database.dart';
 import 'sync/sync_engine.dart';
 import 'sync/durable_operations.dart';
@@ -153,7 +155,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                         selectedTileColor: const Color(0xFFE7F2EB),
                         selectedColor: GymTheme.sage,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         leading: Icon(d.$3),
                         title: collapsed
@@ -180,7 +182,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF0EFFA),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -572,6 +574,12 @@ class Dashboard extends StatelessWidget {
           ),
           if (repo.access.finances) ...[
             (
+              'Discounts given this month',
+              Money.format(DiscountTotals.forMonth(invoices, today)),
+              Icons.local_offer_outlined,
+              const Color(0xFFECE9FA),
+            ),
+            (
               'Collected today',
               Money.format(collected(false)),
               Icons.payments_outlined,
@@ -619,7 +627,7 @@ class Dashboard extends StatelessWidget {
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
                                   color: m.$4,
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Icon(m.$3, color: GymTheme.ink),
                               ),
@@ -728,7 +736,7 @@ class Dashboard extends StatelessWidget {
                             onPressed: () =>
                                 showRecordEditor(context, 'members'),
                             icon: const Icon(Icons.person_add_alt),
-                            label: const Text('Register member'),
+                            label: const Text('Add member'),
                           ),
                         if (repo.access.administer)
                           OutlinedButton.icon(
@@ -846,7 +854,9 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                 for (final status in ['all', 'active', 'archived', 'pending'])
                   DropdownMenuItem(
                     value: status,
-                    child: Text(status == 'all' ? 'All statuses' : status),
+                    child: Text(
+                      status == 'all' ? 'All statuses' : displayLabel(status),
+                    ),
                   ),
               ],
               onChanged: (v) => setState(() {
@@ -866,7 +876,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
               FilledButton.icon(
                 onPressed: () => showServerOperation(context, 'subscribe'),
                 icon: const Icon(Icons.add),
-                label: const Text('Create / renew membership'),
+                label: const Text('Create membership'),
               ),
             if (kind == 'employees' && repo.access.administer)
               FilledButton.icon(
@@ -914,7 +924,9 @@ class _RecordDirectoryState extends State<RecordDirectory> {
         const SizedBox(height: 20),
         Expanded(
           child: StreamBuilder<List<CachedRecord>>(
-            stream: repo.watch(kind),
+            stream: (repo.db.select(
+              repo.db.cachedRecords,
+            )..where((r) => r.scope.equals(repo.scope))).watch(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 return const Text(
@@ -924,11 +936,17 @@ class _RecordDirectoryState extends State<RecordDirectory> {
               if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
               }
+              final labels = RecordLabels(snapshot.data!);
               final records =
                   snapshot.data!
                       .where(
                         (r) =>
-                            r.payload.toLowerCase().contains(query) &&
+                            r.kind == kind &&
+                            (r.payload.toLowerCase().contains(query) ||
+                                labels
+                                    .title(kind, jsonDecode(r.payload) as Map)
+                                    .toLowerCase()
+                                    .contains(query)) &&
                             (filter == 'all' ||
                                 filter == 'pending' &&
                                     r.syncState != 'synced' ||
@@ -936,7 +954,13 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                     filter),
                       )
                       .toList()
-                    ..sort((a, b) => a.payload.compareTo(b.payload));
+                    ..sort(
+                      (a, b) => labels
+                          .title(kind, jsonDecode(a.payload) as Map)
+                          .compareTo(
+                            labels.title(kind, jsonDecode(b.payload) as Map),
+                          ),
+                    );
               if (records.isEmpty) {
                 return Card(
                   child: EmptyPanel(
@@ -959,7 +983,166 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                         itemBuilder: (context, i) {
                           final r = records[start + i],
                               m = jsonDecode(r.payload) as Map<String, dynamic>;
-                          return ListTile(
+                          final compact =
+                              MediaQuery.sizeOf(context).width < 760;
+                          final actions = <Widget>[
+                            if (m['price_minor'] != null)
+                              Text(
+                                Money.format(
+                                  m['price_minor'] as int,
+                                  m['currency'] as String? ?? 'AED',
+                                ),
+                              ),
+                            const SizedBox(width: 8),
+                            Chip(
+                              label: Text(
+                                r.syncState == 'synced'
+                                    ? displayLabel(
+                                        (m['status'] ?? 'active').toString(),
+                                      )
+                                    : displayLabel(r.syncState),
+                              ),
+                            ),
+                            if (editable)
+                              IconButton(
+                                tooltip: 'Edit record',
+                                onPressed: () =>
+                                    showRecordEditor(context, kind, record: r),
+                                icon: const Icon(Icons.edit_outlined),
+                              ),
+                            if (kind == 'subscriptions' && repo.access.finances)
+                              IconButton(
+                                tooltip: m['status'] == 'paused'
+                                    ? 'Resume before renewal'
+                                    : 'Renew membership',
+                                onPressed: m['status'] == 'paused'
+                                    ? null
+                                    : () => showServerOperation(
+                                        context,
+                                        'subscribe',
+                                        record: r,
+                                      ),
+                                icon: const Icon(Icons.autorenew),
+                              ),
+                            if (kind == 'subscriptions' && repo.access.finances)
+                              IconButton(
+                                tooltip: 'Manage membership',
+                                onPressed: () => showServerOperation(
+                                  context,
+                                  'transition',
+                                  record: r,
+                                ),
+                                icon: const Icon(Icons.more_horiz),
+                              ),
+                            if (kind == 'invoices' &&
+                                repo.access.finances &&
+                                m['status'] != 'paid')
+                              IconButton(
+                                tooltip: 'Record payment',
+                                onPressed: () => showServerOperation(
+                                  context,
+                                  'pay',
+                                  record: r,
+                                ),
+                                icon: const Icon(Icons.add_card),
+                              ),
+                            if (kind == 'subscriptions' && repo.access.finances)
+                              IconButton(
+                                tooltip: 'Change package',
+                                onPressed: () => showAdjustment(
+                                  context,
+                                  r,
+                                  packageChange: true,
+                                ),
+                                icon: const Icon(Icons.swap_horiz),
+                              ),
+                            if (kind == 'employees' &&
+                                repo.access.administer &&
+                                m['status'] == 'active')
+                              IconButton(
+                                tooltip: 'Deactivate employee',
+                                onPressed: () => showAdjustment(
+                                  context,
+                                  r,
+                                  deactivate: true,
+                                ),
+                                icon: const Icon(Icons.person_off_outlined),
+                              ),
+                            if (kind == 'receipts')
+                              IconButton(
+                                tooltip: 'Preview official receipt',
+                                onPressed: () async {
+                                  try {
+                                    final receipt = await context
+                                        .read<OperationsRepository>()
+                                        .receipt(r.id);
+                                    if (!context.mounted) return;
+                                    await Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) => Scaffold(
+                                          appBar: AppBar(
+                                            title: Text(
+                                              'Receipt #${receipt['receipt_number']}',
+                                            ),
+                                          ),
+                                          body: PdfPreview(
+                                            build: (_) =>
+                                                ReceiptPdf.build(receipt),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  } catch (_) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Unable to verify receipt. Reconnect and try again.',
+                                              ),
+                                            ),
+                                          );
+                                    }
+                                  }
+                                },
+                                icon: const Icon(Icons.picture_as_pdf_outlined),
+                              ),
+                            if (kind == 'receipts' &&
+                                repo.access.administer &&
+                                m['status'] == 'issued')
+                              IconButton(
+                                tooltip: 'Reverse payment',
+                                onPressed: () => showAdjustment(context, r),
+                                icon: const Icon(Icons.undo),
+                              ),
+                            if (kind == 'notifications' && m['read_at'] == null)
+                              IconButton(
+                                tooltip: 'Mark read',
+                                onPressed: () async {
+                                  try {
+                                    await context
+                                        .read<OperationsRepository>()
+                                        .readNotification(r.id);
+                                    if (context.mounted) {
+                                      await context.read<SyncEngine>().sync();
+                                    }
+                                  } catch (_) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Unable to mark notification read. Retry when connected.',
+                                              ),
+                                            ),
+                                          );
+                                    }
+                                  }
+                                },
+                                icon: const Icon(Icons.done),
+                              ),
+                          ];
+                          final tile = ListTile(
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 20,
                               vertical: 8,
@@ -972,179 +1155,18 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                     : Icons.inventory_2_outlined,
                               ),
                             ),
-                            title: Text(
-                              (m['full_name'] ??
-                                      m['name'] ??
-                                      m['title'] ??
-                                      m['receipt_number'] ??
-                                      m['id'])
-                                  .toString(),
-                            ),
-                            subtitle: Text(
-                              (m['phone'] ??
-                                      m['description'] ??
-                                      m['status'] ??
-                                      '')
-                                  .toString(),
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (m['price_minor'] != null)
-                                  Text(
-                                    Money.format(
-                                      m['price_minor'] as int,
-                                      m['currency'] as String? ?? 'AED',
-                                    ),
+                            title: Text(labels.title(kind, m)),
+                            subtitle: Text(labels.subtitle(kind, m)),
+                            trailing: compact
+                                ? null
+                                : Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: actions,
                                   ),
-                                const SizedBox(width: 8),
-                                Chip(
-                                  label: Text(
-                                    r.syncState == 'synced'
-                                        ? (m['status'] ?? 'active').toString()
-                                        : r.syncState,
-                                  ),
-                                ),
-                                if (editable)
-                                  IconButton(
-                                    tooltip: 'Edit record',
-                                    onPressed: () => showRecordEditor(
-                                      context,
-                                      kind,
-                                      record: r,
-                                    ),
-                                    icon: const Icon(Icons.edit_outlined),
-                                  ),
-                                if (kind == 'subscriptions' &&
-                                    repo.access.finances)
-                                  IconButton(
-                                    tooltip: 'Manage membership',
-                                    onPressed: () => showServerOperation(
-                                      context,
-                                      'transition',
-                                      record: r,
-                                    ),
-                                    icon: const Icon(Icons.more_horiz),
-                                  ),
-                                if (kind == 'invoices' &&
-                                    repo.access.finances &&
-                                    m['status'] != 'paid')
-                                  IconButton(
-                                    tooltip: 'Record payment',
-                                    onPressed: () => showServerOperation(
-                                      context,
-                                      'pay',
-                                      record: r,
-                                    ),
-                                    icon: const Icon(Icons.add_card),
-                                  ),
-                                if (kind == 'subscriptions' &&
-                                    repo.access.finances)
-                                  IconButton(
-                                    tooltip: 'Change package',
-                                    onPressed: () => showAdjustment(
-                                      context,
-                                      r,
-                                      packageChange: true,
-                                    ),
-                                    icon: const Icon(Icons.swap_horiz),
-                                  ),
-                                if (kind == 'employees' &&
-                                    repo.access.administer &&
-                                    m['status'] == 'active')
-                                  IconButton(
-                                    tooltip: 'Deactivate employee',
-                                    onPressed: () => showAdjustment(
-                                      context,
-                                      r,
-                                      deactivate: true,
-                                    ),
-                                    icon: const Icon(Icons.person_off_outlined),
-                                  ),
-                                if (kind == 'receipts')
-                                  IconButton(
-                                    tooltip: 'Preview official receipt',
-                                    onPressed: () async {
-                                      try {
-                                        final receipt = await context
-                                            .read<OperationsRepository>()
-                                            .receipt(r.id);
-                                        if (!context.mounted) return;
-                                        await Navigator.of(context).push(
-                                          MaterialPageRoute<void>(
-                                            builder: (_) => Scaffold(
-                                              appBar: AppBar(
-                                                title: Text(
-                                                  'Receipt #${receipt['receipt_number']}',
-                                                ),
-                                              ),
-                                              body: PdfPreview(
-                                                build: (_) =>
-                                                    ReceiptPdf.build(receipt),
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      } catch (_) {
-                                        if (context.mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    'Unable to verify receipt. Reconnect and try again.',
-                                                  ),
-                                                ),
-                                              );
-                                        }
-                                      }
-                                    },
-                                    icon: const Icon(
-                                      Icons.picture_as_pdf_outlined,
-                                    ),
-                                  ),
-                                if (kind == 'receipts' &&
-                                    repo.access.administer &&
-                                    m['status'] == 'issued')
-                                  IconButton(
-                                    tooltip: 'Reverse payment',
-                                    onPressed: () => showAdjustment(context, r),
-                                    icon: const Icon(Icons.undo),
-                                  ),
-                                if (kind == 'notifications' &&
-                                    m['read_at'] == null)
-                                  IconButton(
-                                    tooltip: 'Mark read',
-                                    onPressed: () async {
-                                      try {
-                                        await context
-                                            .read<OperationsRepository>()
-                                            .readNotification(r.id);
-                                        if (context.mounted) {
-                                          await context
-                                              .read<SyncEngine>()
-                                              .sync();
-                                        }
-                                      } catch (_) {
-                                        if (context.mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    'Unable to mark notification read. Retry when connected.',
-                                                  ),
-                                                ),
-                                              );
-                                        }
-                                      }
-                                    },
-                                    icon: const Icon(Icons.done),
-                                  ),
-                              ],
-                            ),
                             onTap: () => showDialog<void>(
                               context: context,
                               builder: (context) => AlertDialog(
-                                title: const Text('Record details'),
+                                title: Text(labels.title(kind, m)),
                                 content: RecordDetails(
                                   record: r,
                                   repository: repo,
@@ -1157,6 +1179,40 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                 ],
                               ),
                             ),
+                          );
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              tile,
+                              if (compact)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    12,
+                                  ),
+                                  child: Wrap(
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    children: [
+                                      for (final action in actions)
+                                        if (action is IconButton)
+                                          TextButton.icon(
+                                            onPressed: action.onPressed,
+                                            icon: action.icon,
+                                            label: Text(
+                                              action.tooltip ?? "Open",
+                                            ),
+                                          )
+                                        else
+                                          action,
+                                    ],
+                                  ),
+                                ),
+                            ],
                           );
                         },
                       ),
@@ -1253,8 +1309,16 @@ Future<void> showRecordEditor(
                         controller: controllers[f],
                         decoration: InputDecoration(
                           labelText:
-                              f.replaceAll('_', ' ') +
-                              (f == 'price' ? ' (AED)' : ''),
+                              {
+                                'full_name': 'Full name',
+                                'phone': 'Phone number',
+                                'email': 'Email address',
+                                'name': 'Package name',
+                                'duration_value': 'Duration',
+                                'price': 'Price (AED)',
+                                'allowed_pause_days': 'Allowed pause days',
+                              }[f] ??
+                              displayLabel(f),
                         ),
                         maxLines: f == 'notes' || f == 'description' ? 3 : 1,
                         validator: (v) {
@@ -1309,7 +1373,10 @@ Future<void> showRecordEditor(
                       ),
                       items: [
                         for (final u in ['days', 'weeks', 'months', 'years'])
-                          DropdownMenuItem(value: u, child: Text(u)),
+                          DropdownMenuItem(
+                            value: u,
+                            child: Text(displayLabel(u)),
+                          ),
                       ],
                       onChanged: (v) => unit = v!,
                     ),
@@ -1319,7 +1386,10 @@ Future<void> showRecordEditor(
                     decoration: const InputDecoration(labelText: 'Status'),
                     items: [
                       for (final s in ['active', 'inactive', 'archived'])
-                        DropdownMenuItem(value: s, child: Text(s)),
+                        DropdownMenuItem(
+                          value: s,
+                          child: Text(displayLabel(s)),
+                        ),
                     ],
                     onChanged: (v) => status = v!,
                   ),
@@ -1395,7 +1465,13 @@ Future<void> showRecordEditor(
                       });
                     }
                   },
-            child: Text(busy ? 'Saving…' : 'Save on this device'),
+            child: Text(
+              busy
+                  ? 'Saving…'
+                  : member
+                  ? 'Save member'
+                  : 'Save package',
+            ),
           ),
         ],
       ),
@@ -1587,7 +1663,7 @@ class SettingsPanel extends StatelessWidget {
                     'A live server authorization is required to unlock a workspace. Cached data is isolated by gym and user.',
                   ),
                 ),
-                SelectableText('Gym ID: ${access.gymId}'),
+                Text('Workspace: ${access.gymName}'),
               ],
             ),
           ),

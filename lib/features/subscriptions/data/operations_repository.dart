@@ -6,8 +6,10 @@ abstract interface class OperationsRepository {
     String member,
     String package,
     String start,
-    String operation,
-  );
+    String operation, {
+    int discountMinor = 0,
+    String discountReason = '',
+  });
   Future<Map<String, dynamic>> pay(
     String invoice,
     int amount,
@@ -109,16 +111,20 @@ class SupabaseOperationsRepository implements OperationsRepository {
     String member,
     String package,
     String start,
-    String operation,
-  ) async {
+    String operation, {
+    int discountMinor = 0,
+    String discountReason = '',
+  }) async {
     await client.rpc(
-      'create_subscription',
+      'create_subscription_discounted',
       params: {
         'p_gym': gymId,
         'p_member': member,
         'p_package': package,
         'p_start': start,
         'p_operation': operation,
+        'p_discount_minor': discountMinor,
+        'p_discount_reason': discountReason.trim(),
       },
     );
   }

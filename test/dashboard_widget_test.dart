@@ -92,18 +92,18 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Add member'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Save on this device'));
+      await tester.tap(find.text('Save member'));
       await tester.pumpAndSettle();
       expect(find.text('This field is required'), findsWidgets);
       await tester.enterText(
-        find.widgetWithText(TextFormField, 'full name'),
+        find.widgetWithText(TextFormField, 'Full name'),
         'Amina',
       );
       await tester.enterText(
-        find.widgetWithText(TextFormField, 'phone'),
+        find.widgetWithText(TextFormField, 'Phone number'),
         '+971501234567',
       );
-      await tester.tap(find.text('Save on this device'));
+      await tester.tap(find.text('Save member'));
       await tester.pumpAndSettle();
       final records = await tester.runAsync(
         () => db.select(db.cachedRecords).get(),

@@ -14,6 +14,7 @@ class GymAccess {
   bool get finances =>
       administer || role == GymRole.manager || role == GymRole.receptionist;
   bool get editMembers => finances;
+  bool get canDiscount => administer || role == GymRole.manager;
   bool allows(String path) {
     if (path.startsWith('/employees') || path.startsWith('/settings')) {
       return administer;

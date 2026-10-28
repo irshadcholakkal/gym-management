@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../features/payments/domain/money.dart';
 import 'database/database.dart';
 import 'sync/workspace_repository.dart';
+import 'record_labels.dart';
 
 class RecordDetails extends StatelessWidget {
   const RecordDetails({
@@ -27,6 +28,7 @@ class RecordDetails extends StatelessWidget {
       'notes': 'Notes',
       'joining_date': 'Joined',
       'description': 'Description',
+      'discount_reason': 'Discount reason',
       'status': 'Status',
       'start_date': 'Membership starts',
       'due_date': 'Payment due',
@@ -47,6 +49,31 @@ class RecordDetails extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (m['member_id'] != null || m['snapshot'] is Map)
+              StreamBuilder<List<CachedRecord>>(
+                stream: (repository.db.select(
+                  repository.db.cachedRecords,
+                )..where((r) => r.scope.equals(repository.scope))).watch(),
+                builder: (context, snapshot) {
+                  final labels = RecordLabels(snapshot.data ?? []);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          labels.member(m),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(labels.package(m)),
+                      ],
+                    ),
+                  );
+                },
+              ),
             for (final e in labels.entries)
               if (m[e.key] != null && m[e.key].toString().isNotEmpty)
                 Padding(
@@ -61,7 +88,13 @@ class RecordDetails extends StatelessWidget {
                           style: const TextStyle(color: Color(0xFF657570)),
                         ),
                       ),
-                      Expanded(child: SelectableText(m[e.key].toString())),
+                      Expanded(
+                        child: SelectableText(
+                          ['status', 'method', 'duration_unit'].contains(e.key)
+                              ? displayLabel(m[e.key].toString())
+                              : m[e.key].toString(),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -78,6 +111,8 @@ class RecordDetails extends StatelessWidget {
               ),
             for (final e in {
               'price_minor': 'Package price',
+              'subtotal_minor': 'Subtotal before discount',
+              'discount_minor': 'Special discount',
               'total_minor': 'Invoice total',
               'paid_minor': 'Amount collected',
               'credit_minor': 'Applied credit',
