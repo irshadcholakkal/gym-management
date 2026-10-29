@@ -29,7 +29,7 @@ const user={id:userId,aud:'authenticated',role:'authenticated',email:'owner@exam
 const jwt=[{alg:'HS256',typ:'JWT'},{sub:userId,aud:'authenticated',role:'authenticated',exp:Math.floor(Date.now()/1000)+3600},'test-signature'].map((v,i)=>i===2?v:Buffer.from(JSON.stringify(v)).toString('base64url')).join('.');
 const session={access_token:jwt,refresh_token:'test-refresh-token',token_type:'bearer',expires_in:3600,user};
 const browser=await chromium.launch({channel:'chrome',headless:true});
-let submitted,failNext=true;
+let submitted,failNext=true, photoBytes=0;
 let page;const errors=[];
 try {
  page=await browser.newPage({viewport:{width:1600,height:1200}});
@@ -43,7 +43,11 @@ try {
   else if(url.pathname==='/auth/v1/user')data=user;
   else if(url.pathname==='/rest/v1/gym_users')data=[{gym_id:gym,user_id:userId,role:'owner',active:true,gyms:{name:'Community Fitness'}}];
   else if(url.pathname==='/rest/v1/rpc/pull_changes')data={changes:request.postDataJSON().p_cursor===0?records:[],cursor:1,has_more:false};
-  else if(url.pathname==='/rest/v1/rpc/create_subscription_discounted'){
+  else if(url.pathname.startsWith('/storage/v1/object/member-photos/')) { photoBytes=request.postDataBuffer()?.length??0; data={Key:'photo'}; }
+  else if(url.pathname.startsWith('/storage/v1/object/sign/member-photos/') && request.method()==='GET') { await route.fulfill({status:200,contentType:'image/png',headers:{'access-control-allow-origin':'*'},body:await readFile(path.join(root,'icons/Icon-192.png'))});return; }
+  else if(url.pathname.startsWith('/storage/v1/object/sign/member-photos/')) data={signedURL:'/object/sign/member-photos/test.jpg?token=test'};
+  else if(url.pathname==='/rest/v1/rpc/set_member_photo') { const args=request.postDataJSON(); data={...records[0].payload,profile_image:args.p_path,version:2}; records[0].payload=data; }
+  else if(url.pathname==='/rest/v1/rpc/create_subscription_discounted') {
    submitted=request.postDataJSON();
    if(failNext){failNext=false;await route.fulfill({status:400,contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:JSON.stringify({code:'P0001',message:'Enter a reason for the discount'})});return;}
    data={subscription:records[2].payload,invoice:records[3].payload};
@@ -76,10 +80,22 @@ try {
  await page.getByRole('button',{name:'Renew membership',exact:true}).click();
  await page.getByRole('textbox',{name:/Special discount/}).waitFor({state:'detached'});
  assert.equal(submitted.p_discount_minor,2500);assert.equal(submitted.p_discount_reason,'Loyalty offer');assert.equal(submitted.p_start,end);
+ await page.getByRole('button',{name:'Members',exact:true}).first().click();
+ await page.getByText(/Amina Ali/).or(page.getByLabel(/Amina Ali/)).first().click();
+ await page.getByRole('button',{name:'Add profile photo',exact:true}).waitFor();
+ const chooser=page.waitForEvent('filechooser');
+ await page.getByRole('button',{name:'Add profile photo',exact:true}).click();
+ await (await chooser).setFiles({name:'profile.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==','base64')});
+ await page.getByText(/Photo saved/).waitFor({timeout:30000});
+ assert.ok(photoBytes>0 && photoBytes<153600);
+ await page.getByRole('button',{name:'Change profile photo',exact:true}).waitFor();
+ await page.waitForTimeout(500);
+ await page.screenshot({path:fileURLToPath(new URL('../../artifacts/member-photo.png',import.meta.url)),fullPage:true});
+ await page.getByRole('button',{name:'Close',exact:true}).click();
  await page.setViewportSize({width:390,height:844});await page.waitForTimeout(500);
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=390),'Mobile layout must not overflow');
  await page.screenshot({path:fileURLToPath(new URL('../../artifacts/memberships-mobile.png',import.meta.url)),fullPage:true});
  assert.deepEqual(errors,[]);
- console.log('PASS Simulated authenticated dashboard, names, renewal discount payload, editable server errors, and responsive layout.');
+ console.log('PASS Simulated authenticated dashboard, names, renewal discount payload, editable server errors, compressed profile photo upload, and responsive layout.');
 } catch(error){if(page){await page.screenshot({path:fileURLToPath(new URL('../../artifacts/workspace-failure.png',import.meta.url)),fullPage:true});console.error('Page:',page.url(),'Errors:',errors);console.error((await page.content()).slice(-12000));}throw error;}
 finally {await browser.close();await new Promise(resolve=>server.close(resolve));}

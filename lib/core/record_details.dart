@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../features/members/member_photos.dart';
+
 import 'package:flutter/material.dart';
 
 import '../features/payments/domain/money.dart';
@@ -12,7 +14,9 @@ class RecordDetails extends StatelessWidget {
     super.key,
     required this.record,
     required this.repository,
+    this.photos,
   });
+  final MemberPhotos? photos;
   final CachedRecord record;
   final WorkspaceRepository repository;
   @override
@@ -49,6 +53,8 @@ class RecordDetails extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (record.kind == 'members' && photos != null)
+              MemberPhotoEditor(photos: photos!, member: record),
             if (m['member_id'] != null || m['snapshot'] is Map)
               StreamBuilder<List<CachedRecord>>(
                 stream: (repository.db.select(

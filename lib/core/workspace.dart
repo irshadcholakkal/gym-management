@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import '../features/members/member_photos.dart';
+
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -223,8 +225,13 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
         ),
       ),
     );
-    return RepositoryProvider.value(
-      value: repository,
+    return MultiRepositoryProvider(
+      providers: [
+        RepositoryProvider.value(value: repository),
+        RepositoryProvider<MemberPhotos>(
+          create: (_) => MemberPhotos(widget.client, repository),
+        ),
+      ],
       child: RepositoryProvider<OperationsRepository>(
         create: (_) => DurableOperations(
           SupabaseOperationsRepository(widget.client, widget.access.gymId),
@@ -447,7 +454,7 @@ class WorkspaceContent extends StatelessWidget {
       '/employees': 'employees',
       '/notifications': 'notifications',
     }[path]!;
-    return RecordDirectory(kind: kind);
+    return RecordDirectory(kind: kind, photos: context.read<MemberPhotos>());
   }
 }
 
@@ -802,7 +809,8 @@ class EmptyPanel extends StatelessWidget {
 }
 
 class RecordDirectory extends StatefulWidget {
-  const RecordDirectory({super.key, required this.kind});
+  const RecordDirectory({super.key, required this.kind, this.photos});
+  final MemberPhotos? photos;
   final String kind;
   @override
   State<RecordDirectory> createState() => _RecordDirectoryState();
@@ -1147,14 +1155,19 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                               horizontal: 20,
                               vertical: 8,
                             ),
-                            leading: CircleAvatar(
-                              backgroundColor: const Color(0xFFECE9FA),
-                              child: Icon(
-                                kind == 'members'
-                                    ? Icons.person_outline
-                                    : Icons.inventory_2_outlined,
-                              ),
-                            ),
+                            leading: kind == 'members' && widget.photos != null
+                                ? MemberPhoto(
+                                    photos: widget.photos!,
+                                    path: m['profile_image'] as String?,
+                                  )
+                                : CircleAvatar(
+                                    backgroundColor: const Color(0xFFECE9FA),
+                                    child: Icon(
+                                      kind == 'members'
+                                          ? Icons.person_outline
+                                          : Icons.inventory_2_outlined,
+                                    ),
+                                  ),
                             title: Text(labels.title(kind, m)),
                             subtitle: Text(labels.subtitle(kind, m)),
                             trailing: compact
@@ -1168,6 +1181,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                               builder: (context) => AlertDialog(
                                 title: Text(labels.title(kind, m)),
                                 content: RecordDetails(
+                                  photos: widget.photos,
                                   record: r,
                                   repository: repo,
                                 ),

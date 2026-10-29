@@ -17,7 +17,8 @@ await db.exec(`
   create function realtime.topic() returns text language sql stable as $$ select current_setting('realtime.topic',true) $$;
   create function realtime.send(jsonb,text,text,boolean) returns void language sql as $$ select $$;
   create schema storage; create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
-  create table storage.objects(id uuid primary key,bucket_id text,name text); alter table storage.objects enable row level security;
+  create table storage.objects(id uuid primary key,bucket_id text,name text,owner_id text,metadata jsonb); alter table storage.objects enable row level security;
+  grant usage on schema storage to authenticated; grant select,insert,delete on storage.objects to authenticated;
   create function storage.foldername(text) returns text[] language sql as $$ select string_to_array($1,'/') $$;
 `);
 const migrations = new URL('../../supabase/migrations/', import.meta.url);
@@ -206,6 +207,25 @@ await check('Receptionist cannot grant discounts but can create a full-price mem
   await login(a);await rpc('apply_sync_operation',[gymA,randomUUID(),'members',memberId,0,{full_name:'Full-price member',phone:'+971501234571',joining_date:today,status:'active'}]);await login(reception);
   await assert.rejects(()=>rpc('create_subscription_discounted',[gymA,memberId,discountPackage,today,randomUUID(),100,'Not authorized']),e=>e.code==='42501');
   const result=await rpc('create_subscription_discounted',[gymA,memberId,discountPackage,today,randomUUID(),0,'']);assert.equal(result.invoice.total_minor,32550);assert.equal(result.invoice.discount_minor,0);
+});
+await check('Member photo attachment is versioned, private and idempotent', async()=>{
+  await db.exec('reset role');
+  const path=gymA+'/'+member+'/'+a+'/'+randomUUID()+'.jpg';
+  await db.query("insert into storage.objects(id,bucket_id,name,owner_id,metadata) values($1,'member-photos',$2,$3,$4)",[randomUUID(),path,a,{size:25000,mimetype:'image/jpeg'}]);
+  await login(a);
+  const version=(await db.query('select version from public.members where id=$1',[member])).rows[0].version;
+  const op=randomUUID(),args=[gymA,member,version,path,op];
+  const result=await rpc('set_member_photo',args);
+  assert.equal(result.profile_image,path);assert.equal(result.version,version+1);
+  assert.deepEqual(await rpc('set_member_photo',args),result);
+  assert.equal((await db.query('select name from storage.objects where name=$1',[path])).rows.length,1);
+  assert.equal((await db.query('delete from storage.objects where name=$1 returning name',[path])).rows.length,0);
+  await assert.rejects(()=>rpc('set_member_photo',[gymA,member,version,path,randomUUID()]),e=>e.code==='40001');
+  await login(b);assert.equal((await db.query('select name from storage.objects where name=$1',[path])).rows.length,0);await assert.rejects(()=>rpc('set_member_photo',[gymA,member,version+1,path,randomUUID()]));
+  await login(trainer);await assert.rejects(()=>rpc('set_member_photo',[gymA,member,version+1,path,randomUUID()]));
+  await login(a);await assert.rejects(()=>rpc('set_member_photo',[gymA,member,version+1,gymB+'/'+member+'/'+a+'/fake.jpg',randomUUID()]),/Invalid member photo/);
+  await db.exec('reset role');await db.query("update storage.objects set metadata=$1 where name=$2",[{size:160000,mimetype:'image/jpeg'},path]);await login(a);
+  await assert.rejects(()=>rpc('set_member_photo',[gymA,member,version+1,path,randomUUID()]),/Invalid member photo/);
 });
 console.log(`${passed} database integration checks passed. Hosted Auth, Realtime and Storage were stubbed.`);
 await db.close();

@@ -69,6 +69,10 @@ npm test --prefix tool/browser
 
 The database suite executes migrations and RPCs in PostgreSQL WASM (PGlite), with minimal Auth/Storage/Realtime adapters. It validates real PostgreSQL constraints, roles, RLS, transactions, and idempotency, but cannot validate the hosted services themselves. Browser smoke checks use installed Chrome; they cover the unauthenticated setup shell and offline precaching. They do not imply that all 20 requested end-to-end scenarios passed.
 
+## Member profile photos
+
+Open a member?s details and choose **Add profile photo** or **Change profile photo**. JPEG, PNG and WebP inputs are optimized before upload to a metadata-free JPEG, at most 512 pixels on the longest side and 150 KiB. Photos use the private `member-photos` bucket and short-lived signed URLs. Only staff with member-edit permission can upload; members must be synced first. Replacing a photo attempts to remove the previous unreferenced file. Uploads require connectivity.
+
 ## Code map and invariants
 
 Membership creation and the dedicated **Renew membership** action support an optional **Special discount** amount and required reason for owners, admins and managers. Discounts apply to the membership price before tax, not the enrollment fee; the original package price remains in the snapshot. Invoices/receipts preserve the discount, and **Discounts given this month** totals discounts granted on non-void invoices in the current Dubai calendar month. Resume paused memberships before scheduling a renewal. The schema change is in `202610280001_membership_discounts.sql`.

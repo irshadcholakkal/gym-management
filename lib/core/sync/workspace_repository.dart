@@ -57,8 +57,24 @@ class WorkspaceRepository {
       );
     }
     final recordId = id ?? const Uuid().v4();
-    final data = {...fields, 'id': recordId, 'gym_id': access.gymId};
+
     await db.transaction(() async {
+      final cached =
+          await (db.select(db.cachedRecords)..where(
+                (r) =>
+                    r.scope.equals(scope) &
+                    r.kind.equals(kind) &
+                    r.id.equals(recordId),
+              ))
+              .getSingleOrNull();
+      final data = {
+        ...?(cached == null
+            ? null
+            : jsonDecode(cached.payload) as Map<String, dynamic>),
+        ...fields,
+        'id': recordId,
+        'gym_id': access.gymId,
+      };
       final existing =
           await (db.select(db.syncOperations)..where(
                 (o) => o.scope.equals(scope) & o.recordId.equals(recordId),
