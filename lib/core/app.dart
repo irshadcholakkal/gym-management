@@ -26,6 +26,7 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
   StreamSubscription<SessionState>? _subscription;
   final _refresh = RouterRefresh();
   late final GoRouter _router;
+  String? _pendingNotification;
   late final SemanticsHandle _semantics;
   @override
   void initState() {
@@ -45,6 +46,11 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
           return state.uri.path == '/setup' ? null : '/setup';
         }
         final session = _session!.state, path = state.uri.path;
+        if (session.status != SessionStatus.signedIn &&
+            path == '/notifications' &&
+            state.uri.queryParameters.containsKey('notification')) {
+          _pendingNotification = state.uri.toString();
+        }
         if (session.status == SessionStatus.loading) {
           return path == '/loading' ? null : '/loading';
         }
@@ -68,7 +74,9 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
           '/access',
           '/onboarding',
         ].contains(path)) {
-          return '/';
+          final pending = _pendingNotification;
+          _pendingNotification = null;
+          return pending ?? '/';
         }
         if (!session.access!.allows(path)) return '/';
         return null;

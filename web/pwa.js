@@ -2,6 +2,8 @@
   window.gymproPushSubscribe = async key => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) throw new Error('This browser does not support web push. In-app reminders remain available.');
     if (!key) throw new Error('Push has not been configured by your administrator.');
+    if (!window.isSecureContext) throw new Error('Push requires HTTPS.');
+    if (Notification.permission === 'denied') throw new Error('Notifications are blocked. Allow notifications in your browser site settings and try again.');
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') throw new Error('Push permission was not granted. In-app reminders remain available.');
     const registration = await navigator.serviceWorker.ready;

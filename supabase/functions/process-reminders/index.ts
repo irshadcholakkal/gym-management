@@ -22,7 +22,9 @@ Deno.serve(async (req: Request) => {
       if (!(host === 'fcm.googleapis.com' || host.endsWith('.push.services.mozilla.com') || host === 'updates.push.services.mozilla.com' || host.endsWith('.push.apple.com') || host.endsWith('.notify.windows.com'))) {
         gone = true; throw new Error('Unsupported push endpoint');
       }
-      await webpush.sendNotification(job.subscription, JSON.stringify({ type: 'gym_update' }), { TTL: 3600, timeout: 10000 });
+      await webpush.sendNotification(job.subscription, JSON.stringify({
+        type: job.type, notification_id: job.notification_id, gym_id: job.gym_id,
+      }), { TTL: 3600, timeout: 10000 });
       success = true;
     } catch (error) {
       const code = (error as { statusCode?: number }).statusCode;

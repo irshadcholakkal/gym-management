@@ -29,20 +29,43 @@ self.addEventListener('fetch', event => {
   }
 });
 self.addEventListener('push', event => {
-  // Generic lock-screen message; never render member details from push data.
+  let payload = {};
+  try { payload = event.data?.json() || {}; } catch (_) { /* Legacy or empty push. */ }
+  const id = /^[a-f0-9-]{36}$/i.test(payload.notification_id || '') ? payload.notification_id : null;
+  const gym = /^[a-f0-9-]{36}$/i.test(payload.gym_id || '') ? payload.gym_id : null;
+  const route = new URL('./', BASE);
+  const query = new URLSearchParams();
+  if (id) query.set('notification', id);
+  if (gym) query.set('gym', gym);
+  route.hash = '/notifications' + (query.size ? '?' + query.toString() : '');
+  // Never put member names or contact details on the lock screen.
+  const messages = {
+    expiry_7: 'A membership expires in 7 days. Review the renewal reminder.',
+    expiry_3: 'A membership expires in 3 days. Review the renewal reminder.',
+    expiry_1: 'A membership expires tomorrow. Review the renewal reminder.',
+    expiry_0: 'A membership expires today. Review the warning.',
+    expired: 'A membership has expired. Open your workspace to review.',
+  };
   event.waitUntil(self.registration.showNotification('GymPro UAE', {
-    body: 'You have a gym update. Open your workspace to review.',
+    body: messages[payload.type] || 'You have a gym update. Open your workspace to review.',
     icon: new URL('icons/Icon-192.png', BASE).href,
-    tag: 'gympro-update', data: { url: new URL('./#/notifications', BASE).href },
+    tag: id ? 'gympro-' + id : 'gympro-update', data: { url: route.href },
   }));
 });
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   event.waitUntil((async () => {
-    const target = new URL('./#/notifications', BASE).href;
+    let target = new URL('./#/notifications', BASE).href;
+    try {
+      const requested = new URL(event.notification.data?.url);
+      if (requested.origin === BASE.origin && requested.pathname === BASE.pathname && requested.hash.startsWith('#/notifications')) target = requested.href;
+    } catch (_) { /* Fall back to inbox. */ }
     const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    const existing = windows.find(w => new URL(w.url).origin === BASE.origin);
-    if (existing) { await existing.navigate(target); await existing.focus(); }
+    const existing = windows.find(w => new URL(w.url).origin === BASE.origin && new URL(w.url).pathname.startsWith(BASE.pathname));
+    if (existing) {
+      try { await existing.navigate(target); await existing.focus(); }
+      catch (_) { await self.clients.openWindow(target); }
+    }
     else await self.clients.openWindow(target);
   })());
 });
