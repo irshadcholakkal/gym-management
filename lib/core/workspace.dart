@@ -1366,7 +1366,7 @@ Future<void> showRecordEditor(
       : jsonDecode(record.payload) as Map<String, dynamic>;
   final member = kind == 'members', form = GlobalKey<FormState>();
   final fields = member
-      ? ['full_name', 'phone', 'email', 'address', 'notes']
+      ? ['full_name', 'phone', 'email', 'occupation', 'address', 'notes']
       : [
           'name',
           'description',

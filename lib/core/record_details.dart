@@ -29,6 +29,7 @@ class RecordDetails extends StatelessWidget {
       'phone': 'Phone',
       'email': 'Email',
       'address': 'Address',
+      'occupation': 'Occupation',
       'notes': 'Notes',
       'joining_date': 'Joined',
       'description': 'Description',

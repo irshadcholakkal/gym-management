@@ -103,6 +103,10 @@ void main() {
         find.widgetWithText(TextFormField, 'Phone number'),
         '+971501234567',
       );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Occupation'),
+        '  Teacher  ',
+      );
       await tester.tap(find.text('Save member'));
       await tester.pumpAndSettle();
       final records = await tester.runAsync(
@@ -112,7 +116,15 @@ void main() {
         () => db.select(db.syncOperations).get(),
       );
       expect(records!.single.syncState, 'pending');
+      expect(
+        (jsonDecode(records.single.payload) as Map)['occupation'],
+        'Teacher',
+      );
       expect(operations!.length, 1);
+      expect(
+        (jsonDecode(operations.single.payload) as Map)['occupation'],
+        'Teacher',
+      );
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();

@@ -227,5 +227,22 @@ await check('Member photo attachment is versioned, private and idempotent', asyn
   await db.exec('reset role');await db.query("update storage.objects set metadata=$1 where name=$2",[{size:160000,mimetype:'image/jpeg'},path]);await login(a);
   await assert.rejects(()=>rpc('set_member_photo',[gymA,member,version+1,path,randomUUID()]),/Invalid member photo/);
 });
+await check('Member occupation persists, edits, clears, and survives older clients', async () => {
+  await login(a);
+  const id=randomUUID(), data={full_name:'Occupation test',phone:'+971501234569',joining_date:'2026-01-01',status:'active',occupation:'  Teacher  '};
+  let record=await rpc('apply_sync_operation',[gymA,randomUUID(),'members',id,0,data]);
+  assert.equal(record.occupation,'Teacher');
+  const operation=randomUUID(), args=[gymA,operation,'members',id,record.version,{...data,occupation:'Engineer'}];
+  record=await rpc('apply_sync_operation',args);
+  assert.equal(record.occupation,'Engineer');
+  assert.deepEqual(await rpc('apply_sync_operation',args),record);
+  const legacy={...data}; delete legacy.occupation;
+  record=await rpc('apply_sync_operation',[gymA,randomUUID(),'members',id,record.version,legacy]);
+  assert.equal(record.occupation,'Engineer');
+  record=await rpc('apply_sync_operation',[gymA,randomUUID(),'members',id,record.version,{...data,occupation:''}]);
+  assert.equal(record.occupation,'');
+  await login(b);
+  await assert.rejects(()=>rpc('apply_sync_operation',[gymA,randomUUID(),'members',id,record.version,{...data,occupation:'Unauthorized'}]),e=>e.code==='42501');
+});
 console.log(`${passed} database integration checks passed. Hosted Auth, Realtime and Storage were stubbed.`);
 await db.close();
