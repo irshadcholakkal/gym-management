@@ -1,3 +1,7 @@
+import '../features/receipts/presentation/receipt_design_editor.dart';
+import '../features/receipts/presentation/receipt_preview.dart';
+import '../features/receipts/data/receipt_design_repository.dart';
+import '../features/receipts/domain/receipt_html.dart';
 import '../features/employees/employee_access.dart';
 import '../features/install/install_app_card.dart';
 import 'dart:async';
@@ -11,6 +15,7 @@ import '../features/members/member_photos.dart';
 
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -885,526 +890,553 @@ class _RecordDirectoryState extends State<RecordDirectory> {
         .queryParameters['record'];
     final editable = kind == 'members' && repo.access.editMembers ||
         kind == 'membership_packages' && repo.access.administer;
-    return Column(
-      children: [
-        if (focusedRecord != null)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: () => context.go(GoRouterState.of(context).uri.path),
-              icon: const Icon(Icons.arrow_back),
-              label: const Text('Show all records'),
+    return Focus(
+      autofocus: true,
+      skipTraversal: true,
+      child: Column(
+        children: [
+          if (focusedRecord != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => context.go(GoRouterState.of(context).uri.path),
+                icon: const Icon(Icons.arrow_back),
+                label: const Text('Show all records'),
+              ),
             ),
-          ),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            SizedBox(
-              width: MediaQuery.sizeOf(context).width < 600
-                  ? double.infinity
-                  : 320,
-              child: TextField(
-                key: ValueKey(kind),
-                onChanged: (value) {
-                  _searchTimer?.cancel();
-                  _searchTimer = Timer(const Duration(milliseconds: 180), () {
-                    if (!mounted) return;
-                    setState(() {
-                      query = value.toLowerCase();
-                      page = 0;
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  key: ValueKey(kind),
+                  autofocus: false,
+                  onChanged: (value) {
+                    _searchTimer?.cancel();
+                    _searchTimer = Timer(const Duration(milliseconds: 180), () {
+                      if (!mounted) return;
+                      setState(() {
+                        query = value.toLowerCase();
+                        page = 0;
+                      });
                     });
-                  });
-                },
-                decoration: const InputDecoration(
-                  hintText: 'Search records…',
-                  prefixIcon: Icon(Icons.search),
+                  },
+                  decoration: const InputDecoration(
+                    hintText: 'Search records…',
+                    prefixIcon: Icon(Icons.search),
+                  ),
                 ),
               ),
-            ),
-            DropdownButton<String>(
-              value: filter,
-              items: [
-                for (final status in (kind == 'subscriptions'
-                    ? [
-                        'all',
-                        'active',
-                        'expiring_soon',
-                        'expired',
-                        'paused',
-                        'scheduled_renewal',
-                        'pending_activation',
-                        'draft',
-                        'cancelled',
-                        'pending',
-                      ]
-                    : ['all', 'active', 'archived', 'pending']))
-                  DropdownMenuItem(
-                    value: status,
-                    child: Text(
-                      status == 'all' ? 'All statuses' : displayLabel(status),
-                    ),
-                  ),
-              ],
-              onChanged: (v) => setState(() {
-                filter = v!;
-                page = 0;
-              }),
-            ),
-            if (editable)
-              FilledButton.icon(
-                onPressed: () => showRecordEditor(context, kind),
-                icon: const Icon(Icons.add),
-                label: Text(
-                  kind == 'members' ? 'Add member' : 'Create package',
+              const SizedBox(width: 4),
+              PopupMenuButton<String>(
+                tooltip: filter == 'all'
+                    ? 'Filter records'
+                    : 'Filter: ${displayLabel(filter)}',
+                icon: Badge(
+                    isLabelVisible: filter != 'all',
+                    smallSize: 6,
+                    child: Icon(Icons.filter_list_rounded,
+                        color: filter == 'all' ? null : GymTheme.blue)),
+                initialValue: filter,
+                itemBuilder: (_) => [
+                  for (final status in (kind == 'subscriptions'
+                      ? [
+                          'all',
+                          'active',
+                          'expiring_soon',
+                          'expired',
+                          'paused',
+                          'scheduled_renewal',
+                          'pending_activation',
+                          'draft',
+                          'cancelled',
+                          'pending'
+                        ]
+                      : ['all', 'active', 'archived', 'pending']))
+                    CheckedPopupMenuItem<String>(
+                        value: status,
+                        checked: filter == status,
+                        child: Text(status == 'all'
+                            ? 'All statuses'
+                            : displayLabel(status))),
+                ],
+                onSelected: (value) => setState(() {
+                  filter = value;
+                  page = 0;
+                }),
+              ),
+              if (editable)
+                IconButton.filled(
+                  tooltip: kind == 'members' ? 'Add member' : 'Create package',
+                  onPressed: () => showRecordEditor(context, kind),
+                  icon: const Icon(Icons.add),
                 ),
-              ),
-            if (kind == 'subscriptions' && repo.access.finances)
-              FilledButton.icon(
-                onPressed: () => showServerOperation(context, 'subscribe'),
-                icon: const Icon(Icons.add),
-                label: const Text('Create membership'),
-              ),
-            if (kind == 'employees' && repo.access.administer)
-              FilledButton.icon(
-                onPressed: () => showServerOperation(context, 'invite'),
-                icon: const Icon(Icons.person_add_alt),
-                label: const Text('Invite employee'),
-              ),
-            if (kind == 'notifications')
-              OutlinedButton.icon(
-                onPressed: () async {
-                  try {
-                    final subscription = await subscribePush(
-                      const String.fromEnvironment('VAPID_PUBLIC_KEY'),
-                    );
-                    if (!context.mounted) return;
-                    await context.read<OperationsRepository>().registerPush(
-                          jsonDecode(subscription) as Map<String, dynamic>,
-                        );
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Browser push enabled for this workspace.',
-                          ),
-                        ),
+              if (kind == 'subscriptions' && repo.access.finances)
+                IconButton.filled(
+                  tooltip: 'Create membership',
+                  onPressed: () => showServerOperation(context, 'subscribe'),
+                  icon: const Icon(Icons.add),
+                ),
+              if (kind == 'employees' && repo.access.administer)
+                IconButton.filled(
+                  tooltip: 'Invite employee',
+                  onPressed: () => showServerOperation(context, 'invite'),
+                  icon: const Icon(Icons.person_add_alt),
+                ),
+              if (kind == 'notifications')
+                IconButton(
+                  tooltip: 'Enable browser push',
+                  onPressed: () async {
+                    try {
+                      final subscription = await subscribePush(
+                        const String.fromEnvironment('VAPID_PUBLIC_KEY'),
                       );
-                    }
-                  } catch (_) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Push is unavailable, unconfigured, or permission was denied. In-app reminders remain available.',
-                          ),
-                        ),
-                      );
-                    }
-                  }
-                },
-                icon: const Icon(Icons.notifications_active_outlined),
-                label: const Text('Enable browser push'),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: StreamBuilder<List<CachedRecord>>(
-            stream: repo.records,
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return const Text(
-                  'Unable to open local storage. Check browser storage permissions.',
-                );
-              }
-              if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (!identical(_labelRecords, snapshot.data)) {
-                _labelRecords = snapshot.data;
-                _labels = RecordLabels(snapshot.data!);
-              }
-              final labels = _labels!;
-              final records = snapshot.data!
-                  .where(
-                    (r) =>
-                        r.kind == kind &&
-                        (focusedRecord != null
-                            ? r.id == focusedRecord
-                            : (r.payload.toLowerCase().contains(query) ||
-                                    labels
-                                        .title(
-                                          kind,
-                                          labels.lookup(kind, r.id),
-                                        )
-                                        .toLowerCase()
-                                        .contains(query)) &&
-                                (filter == 'all' ||
-                                    filter == 'pending' &&
-                                        r.syncState != 'synced' ||
-                                    (kind == 'subscriptions'
-                                            ? MembershipStatus(
-                                                labels.lookup(kind, r.id),
-                                              ).status
-                                            : (jsonDecode(r.payload)
-                                                as Map)['status']) ==
-                                        filter)),
-                  )
-                  .toList()
-                ..sort(
-                  (a, b) =>
-                      labels.title(kind, labels.lookup(kind, a.id)).compareTo(
-                            labels.title(kind, labels.lookup(kind, b.id)),
-                          ),
-                );
-              if (records.isEmpty) {
-                return Card(
-                  child: EmptyPanel(
-                    icon: Icons.folder_open_outlined,
-                    title: 'No records yet',
-                    message: editable
-                        ? 'Create your first record. Changes appear immediately, even before sync.'
-                        : 'Authorized records will appear here after synchronization.',
-                  ),
-                );
-              }
-              final start = focusedRecord != null
-                  ? 0
-                  : (page * 15).clamp(0, records.length);
-              return Card(
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: ListView.separated(
-                        itemCount: records.skip(start).take(15).length,
-                        separatorBuilder: (context, index) =>
-                            const Divider(height: 1),
-                        itemBuilder: (context, i) {
-                          final r = records[start + i],
-                              m = labels.lookup(kind, r.id);
-                          final membership = kind == 'subscriptions'
-                              ? MembershipStatus(m)
-                              : null;
-                          final compact =
-                              MediaQuery.sizeOf(context).width < 760;
-                          final actions = <Widget>[
-                            if (kind == 'employees' &&
-                                repo.access.administer &&
-                                m['access_role'] != 'owner')
-                              IconButton(
-                                  tooltip: 'Manage access',
-                                  onPressed: () =>
-                                      showEmployeeAccess(context, r),
-                                  icon: const Icon(
-                                      Icons.admin_panel_settings_outlined)),
-                            if (m['price_minor'] != null)
-                              Text(
-                                Money.format(
-                                  m['price_minor'] as int,
-                                  m['currency'] as String? ?? 'AED',
-                                ),
-                              ),
-                            const SizedBox(width: 8),
-                            Chip(
-                              backgroundColor: switch (membership?.status) {
-                                'expired' ||
-                                'cancelled' =>
-                                  const Color(0xFFFFE0E0),
-                                'paused' ||
-                                'expiring_soon' =>
-                                  const Color(0xFFFFEBC2),
-                                'active' => const Color(0xFFDFF3E5),
-                                _ => null,
-                              },
-                              label: Text(
-                                displayLabel(
-                                  membership?.status ??
-                                      (m['status'] ?? 'active').toString(),
-                                ),
-                              ),
+                      if (!context.mounted) return;
+                      await context.read<OperationsRepository>().registerPush(
+                            jsonDecode(subscription) as Map<String, dynamic>,
+                          );
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Browser push enabled for this workspace.',
                             ),
-                            if (r.syncState != 'synced')
-                              Chip(label: Text(displayLabel(r.syncState))),
-                            if (membership != null && repo.access.finances)
-                              IconButton(
-                                tooltip: 'WhatsApp message',
-                                icon: const Icon(Icons.chat_outlined),
-                                onPressed: () => showMembershipWhatsApp(
-                                  context,
-                                  subscription: m,
-                                  member: labels.lookup(
-                                    'members',
-                                    m['member_id'],
+                          ),
+                        );
+                      }
+                    } catch (_) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Push is unavailable, unconfigured, or permission was denied. In-app reminders remain available.',
+                            ),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.notifications_active_outlined),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: StreamBuilder<List<CachedRecord>>(
+              stream: repo.records,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return const Text(
+                    'Unable to open local storage. Check browser storage permissions.',
+                  );
+                }
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (!identical(_labelRecords, snapshot.data)) {
+                  _labelRecords = snapshot.data;
+                  _labels = RecordLabels(snapshot.data!);
+                }
+                final labels = _labels!;
+                final records = snapshot.data!
+                    .where(
+                      (r) =>
+                          r.kind == kind &&
+                          (focusedRecord != null
+                              ? r.id == focusedRecord
+                              : (r.payload.toLowerCase().contains(query) ||
+                                      labels
+                                          .title(
+                                            kind,
+                                            labels.lookup(kind, r.id),
+                                          )
+                                          .toLowerCase()
+                                          .contains(query)) &&
+                                  (filter == 'all' ||
+                                      filter == 'pending' &&
+                                          r.syncState != 'synced' ||
+                                      (kind == 'subscriptions'
+                                              ? MembershipStatus(
+                                                  labels.lookup(kind, r.id),
+                                                ).status
+                                              : (jsonDecode(r.payload)
+                                                  as Map)['status']) ==
+                                          filter)),
+                    )
+                    .toList()
+                  ..sort(
+                    (a, b) =>
+                        labels.title(kind, labels.lookup(kind, a.id)).compareTo(
+                              labels.title(kind, labels.lookup(kind, b.id)),
+                            ),
+                  );
+                if (records.isEmpty) {
+                  return Card(
+                    child: EmptyPanel(
+                      icon: Icons.folder_open_outlined,
+                      title: 'No records yet',
+                      message: editable
+                          ? 'Create your first record. Changes appear immediately, even before sync.'
+                          : 'Authorized records will appear here after synchronization.',
+                    ),
+                  );
+                }
+                final start = focusedRecord != null
+                    ? 0
+                    : (page * 15).clamp(0, records.length);
+                return Card(
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: ListView.separated(
+                          itemCount: records.skip(start).take(15).length,
+                          separatorBuilder: (context, index) =>
+                              const Divider(height: 1),
+                          itemBuilder: (context, i) {
+                            final r = records[start + i],
+                                m = labels.lookup(kind, r.id);
+                            final membership = kind == 'subscriptions'
+                                ? MembershipStatus(m)
+                                : null;
+                            final compact =
+                                MediaQuery.sizeOf(context).width < 760;
+                            final actions = <Widget>[
+                              if (kind == 'employees' &&
+                                  repo.access.administer &&
+                                  m['access_role'] != 'owner')
+                                IconButton(
+                                    tooltip: 'Manage access',
+                                    onPressed: () =>
+                                        showEmployeeAccess(context, r),
+                                    icon: const Icon(
+                                        Icons.admin_panel_settings_outlined)),
+                              if (m['price_minor'] != null)
+                                Text(
+                                  Money.format(
+                                    m['price_minor'] as int,
+                                    m['currency'] as String? ?? 'AED',
                                   ),
-                                  package: labels.package(m),
-                                  gym: repo.access.gymName,
+                                ),
+                              const SizedBox(width: 8),
+                              Chip(
+                                backgroundColor: switch (membership?.status) {
+                                  'expired' ||
+                                  'cancelled' =>
+                                    const Color(0xFFFFE0E0),
+                                  'paused' ||
+                                  'expiring_soon' =>
+                                    const Color(0xFFFFEBC2),
+                                  'active' => const Color(0xFFDFF3E5),
+                                  _ => null,
+                                },
+                                label: Text(
+                                  displayLabel(
+                                    membership?.status ??
+                                        (m['status'] ?? 'active').toString(),
+                                  ),
                                 ),
                               ),
-                            if (editable)
-                              IconButton(
-                                tooltip: 'Edit record',
-                                onPressed: () =>
-                                    showRecordEditor(context, kind, record: r),
-                                icon: const Icon(Icons.edit_outlined),
-                              ),
-                            if (kind == 'subscriptions' && repo.access.finances)
-                              IconButton(
-                                tooltip: m['status'] == 'paused'
-                                    ? 'Resume before renewal'
-                                    : 'Renew membership',
-                                onPressed: m['status'] == 'paused'
-                                    ? null
-                                    : () => showServerOperation(
-                                          context,
-                                          'subscribe',
-                                          record: r,
-                                        ),
-                                icon: const Icon(Icons.autorenew),
-                              ),
-                            if (kind == 'subscriptions' && repo.access.finances)
-                              IconButton(
-                                tooltip: 'Manage membership',
-                                onPressed: () => showServerOperation(
-                                  context,
-                                  'transition',
-                                  record: r,
+                              if (r.syncState != 'synced')
+                                Chip(label: Text(displayLabel(r.syncState))),
+                              if (membership != null && repo.access.finances)
+                                IconButton(
+                                  tooltip: 'WhatsApp message',
+                                  icon: const Icon(Icons.chat_outlined),
+                                  onPressed: () => showMembershipWhatsApp(
+                                    context,
+                                    subscription: m,
+                                    member: labels.lookup(
+                                      'members',
+                                      m['member_id'],
+                                    ),
+                                    package: labels.package(m),
+                                    gym: repo.access.gymName,
+                                  ),
                                 ),
-                                icon: const Icon(Icons.more_horiz),
-                              ),
-                            if (kind == 'invoices' &&
-                                repo.access.finances &&
-                                m['status'] != 'paid')
-                              IconButton(
-                                tooltip: 'Record payment',
-                                onPressed: () => showServerOperation(
-                                  context,
-                                  'pay',
-                                  record: r,
+                              if (editable)
+                                IconButton(
+                                  tooltip: 'Edit record',
+                                  onPressed: () => showRecordEditor(
+                                      context, kind,
+                                      record: r),
+                                  icon: const Icon(Icons.edit_outlined),
                                 ),
-                                icon: const Icon(Icons.add_card),
-                              ),
-                            if (kind == 'subscriptions' && repo.access.finances)
-                              IconButton(
-                                tooltip: 'Change package',
-                                onPressed: () => showAdjustment(
-                                  context,
-                                  r,
-                                  packageChange: true,
+                              if (kind == 'subscriptions' &&
+                                  repo.access.finances)
+                                IconButton(
+                                  tooltip: m['status'] == 'paused'
+                                      ? 'Resume before renewal'
+                                      : 'Renew membership',
+                                  onPressed: m['status'] == 'paused'
+                                      ? null
+                                      : () => showServerOperation(
+                                            context,
+                                            'subscribe',
+                                            record: r,
+                                          ),
+                                  icon: const Icon(Icons.autorenew),
                                 ),
-                                icon: const Icon(Icons.swap_horiz),
-                              ),
-                            if (kind == 'employees' &&
-                                repo.access.administer &&
-                                m['status'] == 'active')
-                              IconButton(
-                                tooltip: 'Deactivate employee',
-                                onPressed: () => showAdjustment(
-                                  context,
-                                  r,
-                                  deactivate: true,
+                              if (kind == 'subscriptions' &&
+                                  repo.access.finances)
+                                IconButton(
+                                  tooltip: 'Manage membership',
+                                  onPressed: () => showServerOperation(
+                                    context,
+                                    'transition',
+                                    record: r,
+                                  ),
+                                  icon: const Icon(Icons.more_horiz),
                                 ),
-                                icon: const Icon(Icons.person_off_outlined),
-                              ),
-                            if (kind == 'receipts')
-                              IconButton(
-                                tooltip: 'Preview official receipt',
-                                onPressed: () async {
-                                  try {
-                                    final receipt = await context
-                                        .read<OperationsRepository>()
-                                        .receipt(r.id);
-                                    if (!context.mounted) return;
-                                    await Navigator.of(context).push(
-                                      MaterialPageRoute<void>(
-                                        builder: (_) => Scaffold(
-                                          appBar: AppBar(
-                                            title: Text(
-                                              'Receipt #${receipt['receipt_number']}',
+                              if (kind == 'invoices' &&
+                                  repo.access.finances &&
+                                  m['status'] != 'paid')
+                                IconButton(
+                                  tooltip: 'Record payment',
+                                  onPressed: () => showServerOperation(
+                                    context,
+                                    'pay',
+                                    record: r,
+                                  ),
+                                  icon: const Icon(Icons.add_card),
+                                ),
+                              if (kind == 'subscriptions' &&
+                                  repo.access.finances)
+                                IconButton(
+                                  tooltip: 'Change package',
+                                  onPressed: () => showAdjustment(
+                                    context,
+                                    r,
+                                    packageChange: true,
+                                  ),
+                                  icon: const Icon(Icons.swap_horiz),
+                                ),
+                              if (kind == 'employees' &&
+                                  repo.access.administer &&
+                                  m['status'] == 'active')
+                                IconButton(
+                                  tooltip: 'Deactivate employee',
+                                  onPressed: () => showAdjustment(
+                                    context,
+                                    r,
+                                    deactivate: true,
+                                  ),
+                                  icon: const Icon(Icons.person_off_outlined),
+                                ),
+                              if (kind == 'receipts')
+                                IconButton(
+                                  tooltip: 'Preview official receipt',
+                                  onPressed: () async {
+                                    try {
+                                      final receipt = await context
+                                          .read<OperationsRepository>()
+                                          .receipt(r.id);
+                                      if (!context.mounted) return;
+                                      if (kIsWeb) {
+                                        final design =
+                                            await ReceiptDesignRepository(
+                                                    context
+                                                        .read<SupabaseClient>(),
+                                                    repo.access.gymId)
+                                                .load();
+                                        await previewReceiptHtml(
+                                            ReceiptHtml.render(
+                                                design.html, receipt),
+                                            'Receipt #${receipt['receipt_number']}');
+                                        return;
+                                      }
+                                      await Navigator.of(context).push(
+                                        MaterialPageRoute<void>(
+                                          builder: (_) => Scaffold(
+                                            appBar: AppBar(
+                                              title: Text(
+                                                'Receipt #${receipt['receipt_number']}',
+                                              ),
+                                            ),
+                                            body: PdfPreview(
+                                              build: (_) =>
+                                                  ReceiptPdf.build(receipt),
                                             ),
                                           ),
-                                          body: PdfPreview(
-                                            build: (_) =>
-                                                ReceiptPdf.build(receipt),
-                                          ),
                                         ),
+                                      );
+                                    } catch (_) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Unable to verify receipt. Reconnect and try again.',
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                  icon:
+                                      const Icon(Icons.picture_as_pdf_outlined),
+                                ),
+                              if (kind == 'receipts' &&
+                                  repo.access.administer &&
+                                  m['status'] == 'issued')
+                                IconButton(
+                                  tooltip: 'Reverse payment',
+                                  onPressed: () => showAdjustment(context, r),
+                                  icon: const Icon(Icons.undo),
+                                ),
+                              if (kind == 'notifications' &&
+                                  m['read_at'] == null)
+                                IconButton(
+                                  tooltip: 'Mark read',
+                                  onPressed: () async {
+                                    try {
+                                      await context
+                                          .read<OperationsRepository>()
+                                          .readNotification(r.id);
+                                      if (context.mounted) {
+                                        await context.read<SyncEngine>().sync();
+                                      }
+                                    } catch (_) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Unable to mark notification read. Retry when connected.',
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                  icon: const Icon(Icons.done),
+                                ),
+                            ];
+                            final tile = ListTile(
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: compact ? 12 : 20,
+                                  vertical: compact ? 2 : 8),
+                              leading: kind == 'members' &&
+                                      widget.photos != null
+                                  ? MemberPhoto(
+                                      photos: widget.photos!,
+                                      path: m['profile_image'] as String?,
+                                      size: compact ? 34 : 44,
+                                    )
+                                  : CircleAvatar(
+                                      radius: compact ? 16 : 20,
+                                      backgroundColor: const Color(0xFFEBF2FF),
+                                      child: Icon(
+                                        kind == 'members'
+                                            ? Icons.person_outline
+                                            : Icons.inventory_2_outlined,
                                       ),
-                                    );
-                                  } catch (_) {
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Unable to verify receipt. Reconnect and try again.',
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  }
-                                },
-                                icon: const Icon(Icons.picture_as_pdf_outlined),
+                                    ),
+                              title: Text(labels.title(kind, m)),
+                              subtitle: Text(
+                                [
+                                  labels.subtitle(kind, m),
+                                  if (kind == 'employees' &&
+                                      m['employee_number'] != null)
+                                    'EMP-${m['employee_number']} ? ${m['access_role'] ?? 'staff'}',
+                                  if (kind == 'employees' &&
+                                      m['username'] != null)
+                                    'Username: ${m['username']}',
+                                  if (membership != null &&
+                                      membership.countdown.isNotEmpty)
+                                    membership.countdown,
+                                ].join('\n'),
                               ),
-                            if (kind == 'receipts' &&
-                                repo.access.administer &&
-                                m['status'] == 'issued')
-                              IconButton(
-                                tooltip: 'Reverse payment',
-                                onPressed: () => showAdjustment(context, r),
-                                icon: const Icon(Icons.undo),
+                              trailing: compact
+                                  ? RecordActionsMenu(actions: actions)
+                                  : Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: actions,
+                                    ),
+                              onTap: () => showDialog<void>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: Text(labels.title(kind, m)),
+                                  content: RecordDetails(
+                                    photos: widget.photos,
+                                    record: r,
+                                    repository: repo,
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('Close'),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            if (kind == 'notifications' && m['read_at'] == null)
-                              IconButton(
-                                tooltip: 'Mark read',
-                                onPressed: () async {
-                                  try {
-                                    await context
-                                        .read<OperationsRepository>()
-                                        .readNotification(r.id);
-                                    if (context.mounted) {
-                                      await context.read<SyncEngine>().sync();
-                                    }
-                                  } catch (_) {
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Unable to mark notification read. Retry when connected.',
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  }
-                                },
-                                icon: const Icon(Icons.done),
-                              ),
-                          ];
-                          final tile = ListTile(
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: compact ? 12 : 20,
-                                vertical: compact ? 2 : 8),
-                            leading: kind == 'members' && widget.photos != null
-                                ? MemberPhoto(
-                                    photos: widget.photos!,
-                                    path: m['profile_image'] as String?,
-                                    size: compact ? 34 : 44,
-                                  )
-                                : CircleAvatar(
-                                    radius: compact ? 16 : 20,
-                                    backgroundColor: const Color(0xFFEBF2FF),
-                                    child: Icon(
-                                      kind == 'members'
-                                          ? Icons.person_outline
-                                          : Icons.inventory_2_outlined,
+                            );
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                tile,
+                                if (compact &&
+                                    actions.any((action) =>
+                                        action is! IconButton &&
+                                        action is! SizedBox))
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      0,
+                                      16,
+                                      12,
+                                    ),
+                                    child: Wrap(
+                                      spacing: 8,
+                                      runSpacing: 4,
+                                      crossAxisAlignment:
+                                          WrapCrossAlignment.center,
+                                      children: [
+                                        for (final action in actions)
+                                          if (action is! IconButton &&
+                                              action is! SizedBox)
+                                            action,
+                                      ],
                                     ),
                                   ),
-                            title: Text(labels.title(kind, m)),
-                            subtitle: Text(
-                              [
-                                labels.subtitle(kind, m),
-                                if (kind == 'employees' &&
-                                    m['employee_number'] != null)
-                                  'EMP-${m['employee_number']} ? ${m['access_role'] ?? 'staff'}',
-                                if (kind == 'employees' &&
-                                    m['username'] != null)
-                                  'Username: ${m['username']}',
-                                if (membership != null &&
-                                    membership.countdown.isNotEmpty)
-                                  membership.countdown,
-                              ].join('\n'),
-                            ),
-                            trailing: compact
-                                ? RecordActionsMenu(actions: actions)
-                                : Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: actions,
-                                  ),
-                            onTap: () => showDialog<void>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: Text(labels.title(kind, m)),
-                                content: RecordDetails(
-                                  photos: widget.photos,
-                                  record: r,
-                                  repository: repo,
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: const Text('Close'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              tile,
-                              if (compact &&
-                                  actions.any((action) =>
-                                      action is! IconButton &&
-                                      action is! SizedBox))
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    0,
-                                    16,
-                                    12,
-                                  ),
-                                  child: Wrap(
-                                    spacing: 8,
-                                    runSpacing: 4,
-                                    crossAxisAlignment:
-                                        WrapCrossAlignment.center,
-                                    children: [
-                                      for (final action in actions)
-                                        if (action is! IconButton &&
-                                            action is! SizedBox)
-                                          action,
-                                    ],
-                                  ),
-                                ),
-                            ],
-                          );
-                        },
+                              ],
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                    const Divider(height: 1),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Expanded(
-                            child: Text(
-                                '${records.length} records - Page ${page + 1}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.right,
-                                style: Theme.of(context).textTheme.bodySmall)),
-                        IconButton(
-                          tooltip: 'Previous page',
-                          onPressed:
-                              page == 0 ? null : () => setState(() => page--),
-                          icon: const Icon(Icons.chevron_left),
-                        ),
-                        IconButton(
-                          tooltip: 'Next page',
-                          onPressed: start + 15 >= records.length
-                              ? null
-                              : () => setState(() => page++),
-                          icon: const Icon(Icons.chevron_right),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            },
+                      const Divider(height: 1),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Expanded(
+                              child: Text(
+                                  '${records.length} records - Page ${page + 1}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.right,
+                                  style:
+                                      Theme.of(context).textTheme.bodySmall)),
+                          IconButton(
+                            tooltip: 'Previous page',
+                            onPressed:
+                                page == 0 ? null : () => setState(() => page--),
+                            icon: const Icon(Icons.chevron_left),
+                          ),
+                          IconButton(
+                            tooltip: 'Next page',
+                            onPressed: start + 15 >= records.length
+                                ? null
+                                : () => setState(() => page++),
+                            icon: const Icon(Icons.chevron_right),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -1818,6 +1850,8 @@ class SettingsPanel extends StatelessWidget {
     final access = context.read<WorkspaceRepository>().access;
     return ListView(
       children: [
+        const ReceiptDesignCard(),
+        const SizedBox(height: 16),
         const InstallAppCard(),
         const SizedBox(height: 20),
         Card(

@@ -11,7 +11,7 @@ async function files(dir) {
   }
   return output;
 }
-const assets=['index.html','flutter_bootstrap.js','flutter.js','main.dart.js','manifest.json','favicon.png','pwa.js','sqlite3.wasm','drift_worker.dart.js',
+const assets=['index.html','flutter_bootstrap.js','flutter.js','main.dart.js','manifest.json','favicon.png','pwa.js','receipt_preview.js','sqlite3.wasm','drift_worker.dart.js',
   ...await files('assets/'),...await files('icons/'),
   'canvaskit/canvaskit.js','canvaskit/canvaskit.wasm','canvaskit/chromium/canvaskit.js','canvaskit/chromium/canvaskit.wasm'];
 const worker=new URL('gympro-sw.js',root);

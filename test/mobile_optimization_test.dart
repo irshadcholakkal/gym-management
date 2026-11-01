@@ -97,6 +97,25 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(find.byTooltip('Record actions'), findsNWidgets(2));
+      final editable = tester.widget<EditableText>(find.byType(EditableText));
+      expect(editable.focusNode.hasFocus, false);
+      final searchCenter = tester.getCenter(find.byType(TextField));
+      expect(tester.getCenter(find.byTooltip('Filter records')).dy,
+          closeTo(searchCenter.dy, 1));
+      expect(tester.getCenter(find.byTooltip('Add member')).dy,
+          closeTo(searchCenter.dy, 1));
+      await tester.tap(find.byTooltip('Filter records'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byWidgetPredicate((widget) =>
+          widget is CheckedPopupMenuItem<String> &&
+          widget.value == 'archived'));
+      await tester.pumpAndSettle();
+      expect(find.text('No records yet'), findsOneWidget);
+      await tester.tap(find.byTooltip('Filter: Archived'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byWidgetPredicate((widget) =>
+          widget is CheckedPopupMenuItem<String> && widget.value == 'all'));
+      await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Record actions').first);
       await tester.pumpAndSettle();
       expect(find.text('Edit record'), findsOneWidget);

@@ -27,9 +27,7 @@ void main() {
       ),
     );
     final now = DateTime.now().toUtc().toIso8601String();
-    await db
-        .into(db.cachedRecords)
-        .insert(
+    await db.into(db.cachedRecords).insert(
           CachedRecordsCompanion.insert(
             scope: repo.scope,
             kind: 'payments',
@@ -90,7 +88,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Add member'));
+      await tester.tap(find.byTooltip('Add member'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Save member'));
       await tester.pumpAndSettle();
