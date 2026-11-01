@@ -92,7 +92,7 @@ class RecordDetails extends StatelessWidget {
                         width: 150,
                         child: Text(
                           e.value,
-                          style: const TextStyle(color: Color(0xFF657570)),
+                          style: const TextStyle(color: Color(0xFF8590A3)),
                         ),
                       ),
                       Expanded(

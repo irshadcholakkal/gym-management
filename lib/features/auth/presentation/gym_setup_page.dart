@@ -135,7 +135,7 @@ class _GymSetupPageState extends State<GymSetupPage> {
                     const Text(
                       'Joining an existing gym? Ask its administrator to invite you. Creating a workspace here makes a separate gym.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Color(0xFF657570)),
+                      style: TextStyle(color: Color(0xFF8590A3)),
                     ),
                     TextButton(
                       onPressed: _busy ? null : _retry,

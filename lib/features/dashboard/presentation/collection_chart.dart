@@ -19,14 +19,12 @@ class CollectionChart extends StatelessWidget {
     ];
     final totals = months
         .map(
-          (m) => payments
-              .where((p) {
-                final date = DateTime.parse(p['created_at'] as String)
-                    .toUtc()
-                    .add(const Duration(hours: 4));
-                return date.year == m.year && date.month == m.month;
-              })
-              .fold<int>(0, (sum, p) => sum + (p['amount_minor'] as int)),
+          (m) => payments.where((p) {
+            final date = DateTime.parse(p['created_at'] as String)
+                .toUtc()
+                .add(const Duration(hours: 4));
+            return date.year == m.year && date.month == m.month;
+          }).fold<int>(0, (sum, p) => sum + (p['amount_minor'] as int)),
         )
         .toList();
     final maximum = max(1, totals.reduce(max));
@@ -81,8 +79,8 @@ class CollectionChart extends StatelessWidget {
                                   ),
                                   decoration: BoxDecoration(
                                     color: i == 5
-                                        ? const Color(0xFF8FBFA6)
-                                        : const Color(0xFFDDEDE4),
+                                        ? const Color(0xFF397DE5)
+                                        : const Color(0xFF9DBEF5),
                                     borderRadius: const BorderRadius.vertical(
                                       top: Radius.circular(6),
                                     ),

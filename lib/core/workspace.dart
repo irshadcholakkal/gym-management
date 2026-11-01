@@ -97,13 +97,12 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final available = destinations
-        .where((d) => widget.access.allows(d.$1))
-        .toList();
+    final available =
+        destinations.where((d) => widget.access.allows(d.$1)).toList();
     final wide = MediaQuery.sizeOf(context).width >= 1000;
     final title =
         destinations.where((d) => d.$1 == widget.path).firstOrNull?.$2 ??
-        'Overview';
+            'Overview';
     final navigation = Container(
       width: collapsed ? 88 : 244,
       color: Colors.white,
@@ -143,7 +142,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                   style: TextStyle(
                     fontSize: 10,
                     letterSpacing: 2,
-                    color: Color(0xFF708079),
+                    color: Color(0xFF8590A3),
                   ),
                 ),
               ),
@@ -158,10 +157,10 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                       ),
                       child: ListTile(
                         selected: widget.path == d.$1,
-                        selectedTileColor: const Color(0xFFE7F2EB),
+                        selectedTileColor: const Color(0xFFEBF2FF),
                         selectedColor: GymTheme.sage,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(16),
                         ),
                         leading: Icon(d.$3),
                         title: collapsed
@@ -187,13 +186,13 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                 margin: const EdgeInsets.all(16),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0EFFA),
-                  borderRadius: BorderRadius.circular(6),
+                  color: const Color(0xFFEBF2FF),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.spa_outlined, color: Color(0xFF60599A)),
+                    Icon(Icons.spa_outlined, color: Color(0xFF397DE5)),
                     SizedBox(height: 8),
                     Text(
                       'A little stronger, every day.',
@@ -290,7 +289,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                               const NotificationBell(),
                               const SizedBox(width: 12),
                               CircleAvatar(
-                                backgroundColor: const Color(0xFFE8E5F7),
+                                backgroundColor: const Color(0xFFEBF2FF),
                                 child: Text(
                                   widget.access.name
                                       .substring(0, 1)
@@ -314,7 +313,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                                         widget.access.role.name,
                                         style: const TextStyle(
                                           fontSize: 11,
-                                          color: Color(0xFF657570),
+                                          color: Color(0xFF8590A3),
                                         ),
                                       ),
                                     ],
@@ -327,49 +326,48 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                       BlocBuilder<SyncEngine, SyncStatus>(
                         builder: (context, status) =>
                             StreamBuilder<List<SyncOperation>>(
-                              stream: repository.watchOutbox(),
-                              builder: (context, snapshot) {
-                                final pending = snapshot.data?.length ?? 0;
-                                return Container(
-                                  width: double.infinity,
-                                  color: status.error == null
-                                      ? const Color(0xFFEFF7F2)
-                                      : const Color(0xFFFFF1E8),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                    vertical: 8,
+                          stream: repository.watchOutbox(),
+                          builder: (context, snapshot) {
+                            final pending = snapshot.data?.length ?? 0;
+                            return Container(
+                              width: double.infinity,
+                              color: status.error == null
+                                  ? const Color(0xFFF3F6FC)
+                                  : const Color(0xFFFFF1E8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 8,
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    status.error != null
+                                        ? Icons.cloud_off_outlined
+                                        : Icons.cloud_done_outlined,
+                                    size: 16,
                                   ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        status.error != null
-                                            ? Icons.cloud_off_outlined
-                                            : Icons.cloud_done_outlined,
-                                        size: 16,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          status.error ??
-                                              (status.running
-                                                  ? 'Synchronizing workspace…'
-                                                  : pending > 0
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      status.error ??
+                                          (status.running
+                                              ? 'Synchronizing workspace…'
+                                              : pending > 0
                                                   ? '$pending changes on this device awaiting confirmation'
                                                   : 'Workspace synchronized'),
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
-                                      ),
-                                      TextButton(
-                                        onPressed: status.running
-                                            ? null
-                                            : sync.sync,
-                                        child: const Text('Sync now'),
-                                      ),
-                                    ],
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
                                   ),
-                                );
-                              },
-                            ),
+                                  TextButton(
+                                    onPressed:
+                                        status.running ? null : sync.sync,
+                                    child: const Text('Sync now'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
                       ),
                       Expanded(
                         child: Padding(
@@ -381,9 +379,8 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                                 title == 'Overview'
                                     ? 'Your gym, at a glance'
                                     : title,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headlineLarge,
+                                style:
+                                    Theme.of(context).textTheme.headlineLarge,
                               ),
                               const SizedBox(height: 6),
                               Text(
@@ -391,7 +388,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                                     ? 'A clear view of your community and daily operations.'
                                     : 'Manage your ${title.toLowerCase()} in one place.',
                                 style: const TextStyle(
-                                  color: Color(0xFF657570),
+                                  color: Color(0xFF8590A3),
                                 ),
                               ),
                               const SizedBox(height: 24),
@@ -411,8 +408,8 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                     selectedIndex: widget.path == '/members'
                         ? 1
                         : widget.path == '/subscriptions'
-                        ? 2
-                        : 0,
+                            ? 2
+                            : 0,
                     onDestinationSelected: (i) =>
                         context.go(['/', '/members', '/subscriptions'][i]),
                     destinations: const [
@@ -467,7 +464,8 @@ class Dashboard extends StatelessWidget {
     return StreamBuilder<List<CachedRecord>>(
       stream: (repo.db.select(
         repo.db.cachedRecords,
-      )..where((r) => r.scope.equals(repo.scope))).watch(),
+      )..where((r) => r.scope.equals(repo.scope)))
+          .watch(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return const Text(
@@ -502,16 +500,14 @@ class Dashboard extends StatelessWidget {
             .where((r) => r.kind == 'payments' && !reversed.contains(r.id))
             .map((r) => jsonDecode(r.payload) as Map)
             .toList();
-        int collected(bool month) => payments
-            .where((p) {
+        int collected(bool month) => payments.where((p) {
               final d = DateTime.parse(p['created_at'] as String)
                   .toUtc()
                   .add(const Duration(hours: 4));
               return d.year == today.year &&
                   d.month == today.month &&
                   (month || d.day == today.day);
-            })
-            .fold<int>(0, (sum, p) => sum + (p['amount_minor'] as int));
+            }).fold<int>(0, (sum, p) => sum + (p['amount_minor'] as int));
         final expiring = subscriptions
             .where(
               (s) =>
@@ -547,72 +543,68 @@ class Dashboard extends StatelessWidget {
             'Registered members',
             '${members.length}',
             Icons.people_outline,
-            const Color(0xFFE3F1E9),
+            const Color(0xFFEBF2FF),
           ),
           (
             'Active memberships',
             '${subscriptions.where((r) => r['status'] == 'active').length}',
             Icons.verified_outlined,
-            const Color(0xFFECE9FA),
+            const Color(0xFFEBF2FF),
           ),
           (
             'Paused memberships',
             '${subscriptions.where((r) => r['status'] == 'paused').length}',
             Icons.pause_circle_outline,
-            const Color(0xFFFFEDE5),
+            const Color(0xFFEBF2FF),
           ),
           if (repo.access.finances)
             (
               'Outstanding balance',
               Money.format(balance),
               Icons.account_balance_wallet_outlined,
-              const Color(0xFFE5F2FA),
+              const Color(0xFFEBF2FF),
             ),
           (
             'Expired memberships',
             '${subscriptions.where((s) => s['status'] == 'expired').length}',
             Icons.event_busy,
-            const Color(0xFFFFEDE5),
+            const Color(0xFFEBF2FF),
           ),
           (
             'Expiring within 7 days',
             '$expiring',
             Icons.event_available,
-            const Color(0xFFECE9FA),
+            const Color(0xFFEBF2FF),
           ),
           if (repo.access.finances) ...[
             (
               'Discounts given this month',
               Money.format(DiscountTotals.forMonth(invoices, today)),
               Icons.local_offer_outlined,
-              const Color(0xFFECE9FA),
+              const Color(0xFFEBF2FF),
             ),
             (
               'Collected today',
               Money.format(collected(false)),
               Icons.payments_outlined,
-              const Color(0xFFE3F1E9),
+              const Color(0xFFEBF2FF),
             ),
             (
               'Collected this month',
               Money.format(collected(true)),
               Icons.trending_up,
-              const Color(0xFFE5F2FA),
+              const Color(0xFFEBF2FF),
             ),
             (
               'Overdue balance',
               Money.format(overdue),
               Icons.schedule,
-              const Color(0xFFFFEDE5),
+              const Color(0xFFEBF2FF),
             ),
           ],
         ];
         return ListView(
           children: [
-            if (repo.access.finances) ...[
-              CollectionChart(payments: payments, today: today),
-              const SizedBox(height: 24),
-            ],
             LayoutBuilder(
               builder: (context, box) => Wrap(
                 spacing: 16,
@@ -621,36 +613,36 @@ class Dashboard extends StatelessWidget {
                   for (final m in metrics)
                     SizedBox(
                       width: box.maxWidth < 600
-                          ? box.maxWidth
+                          ? (box.maxWidth - 16) / 2
                           : (box.maxWidth -
-                                    16 * (box.maxWidth > 1200 ? 3 : 1)) /
-                                (box.maxWidth > 1200 ? 4 : 2),
+                                  16 * (box.maxWidth > 1200 ? 3 : 1)) /
+                              (box.maxWidth > 1200 ? 4 : 2),
                       child: Card(
+                        color: const Color(0xFFF1F3F6),
                         child: Padding(
-                          padding: const EdgeInsets.all(22),
+                          padding: const EdgeInsets.all(16),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: m.$4,
-                                  borderRadius: BorderRadius.circular(6),
+                                  color: GymTheme.softBlue,
+                                  borderRadius: BorderRadius.circular(16),
                                 ),
-                                child: Icon(m.$3, color: GymTheme.ink),
+                                child: Icon(m.$3, color: GymTheme.blue),
                               ),
                               const SizedBox(height: 20),
                               Text(
                                 m.$2,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headlineSmall,
+                                style:
+                                    Theme.of(context).textTheme.headlineSmall,
                               ),
                               const SizedBox(height: 6),
                               Text(
                                 m.$1,
                                 style: const TextStyle(
-                                  color: Color(0xFF657570),
+                                  color: Color(0xFF8590A3),
                                 ),
                               ),
                             ],
@@ -662,6 +654,10 @@ class Dashboard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
+            if (repo.access.finances) ...[
+              CollectionChart(payments: payments, today: today),
+              const SizedBox(height: 24),
+            ],
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -690,7 +686,8 @@ class Dashboard extends StatelessWidget {
                       const EmptyPanel(
                         icon: Icons.people_outline,
                         title: 'Your community starts here',
-                        message: 'Add your first member to see registrations and membership activity.',
+                        message:
+                            'Add your first member to see registrations and membership activity.',
                       )
                     else
                       ...members.reversed.take(5).map((r) {
@@ -698,7 +695,7 @@ class Dashboard extends StatelessWidget {
                         return ListTile(
                           contentPadding: EdgeInsets.zero,
                           leading: const CircleAvatar(
-                            backgroundColor: Color(0xFFE3F1E9),
+                            backgroundColor: Color(0xFFEBF2FF),
                             child: Icon(Icons.person_outline),
                           ),
                           title: Text(m['full_name'] as String),
@@ -766,7 +763,7 @@ class Dashboard extends StatelessWidget {
             const SizedBox(height: 16),
             const Text(
               'Unsynchronized changes are stored on this device. Clearing browser storage removes them. Sync resumes while the application is open.',
-              style: TextStyle(fontSize: 12, color: Color(0xFF657570)),
+              style: TextStyle(fontSize: 12, color: Color(0xFF8590A3)),
             ),
           ],
         );
@@ -786,27 +783,28 @@ class EmptyPanel extends StatelessWidget {
   final String title, message;
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 16),
-    child: Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 40, color: GymTheme.sage),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 16),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 40, color: GymTheme.sage),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Color(0xFF8590A3)),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Color(0xFF657570)),
-          ),
-        ],
-      ),
-    ),
-  );
+        ),
+      );
 }
 
 class RecordDirectory extends StatefulWidget {
@@ -853,8 +851,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
         .value
         .uri
         .queryParameters['record'];
-    final editable =
-        kind == 'members' && repo.access.editMembers ||
+    final editable = kind == 'members' && repo.access.editMembers ||
         kind == 'membership_packages' && repo.access.administer;
     return Column(
       children: [
@@ -889,21 +886,20 @@ class _RecordDirectoryState extends State<RecordDirectory> {
             DropdownButton<String>(
               value: filter,
               items: [
-                for (final status
-                    in (kind == 'subscriptions'
-                        ? [
-                            'all',
-                            'active',
-                            'expiring_soon',
-                            'expired',
-                            'paused',
-                            'scheduled_renewal',
-                            'pending_activation',
-                            'draft',
-                            'cancelled',
-                            'pending',
-                          ]
-                        : ['all', 'active', 'archived', 'pending']))
+                for (final status in (kind == 'subscriptions'
+                    ? [
+                        'all',
+                        'active',
+                        'expiring_soon',
+                        'expired',
+                        'paused',
+                        'scheduled_renewal',
+                        'pending_activation',
+                        'draft',
+                        'cancelled',
+                        'pending',
+                      ]
+                    : ['all', 'active', 'archived', 'pending']))
                   DropdownMenuItem(
                     value: status,
                     child: Text(
@@ -945,8 +941,8 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                     );
                     if (!context.mounted) return;
                     await context.read<OperationsRepository>().registerPush(
-                      jsonDecode(subscription) as Map<String, dynamic>,
-                    );
+                          jsonDecode(subscription) as Map<String, dynamic>,
+                        );
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
@@ -978,7 +974,8 @@ class _RecordDirectoryState extends State<RecordDirectory> {
           child: StreamBuilder<List<CachedRecord>>(
             stream: (repo.db.select(
               repo.db.cachedRecords,
-            )..where((r) => r.scope.equals(repo.scope))).watch(),
+            )..where((r) => r.scope.equals(repo.scope)))
+                .watch(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 return const Text(
@@ -989,41 +986,39 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                 return const Center(child: CircularProgressIndicator());
               }
               final labels = RecordLabels(snapshot.data!);
-              final records =
-                  snapshot.data!
-                      .where(
-                        (r) =>
-                            r.kind == kind &&
-                            (focusedRecord != null
-                                ? r.id == focusedRecord
-                                : (r.payload.toLowerCase().contains(query) ||
-                                          labels
-                                              .title(
-                                                kind,
+              final records = snapshot.data!
+                  .where(
+                    (r) =>
+                        r.kind == kind &&
+                        (focusedRecord != null
+                            ? r.id == focusedRecord
+                            : (r.payload.toLowerCase().contains(query) ||
+                                    labels
+                                        .title(
+                                          kind,
+                                          jsonDecode(r.payload) as Map,
+                                        )
+                                        .toLowerCase()
+                                        .contains(query)) &&
+                                (filter == 'all' ||
+                                    filter == 'pending' &&
+                                        r.syncState != 'synced' ||
+                                    (kind == 'subscriptions'
+                                            ? MembershipStatus(
                                                 jsonDecode(r.payload) as Map,
-                                              )
-                                              .toLowerCase()
-                                              .contains(query)) &&
-                                      (filter == 'all' ||
-                                          filter == 'pending' &&
-                                              r.syncState != 'synced' ||
-                                          (kind == 'subscriptions'
-                                                  ? MembershipStatus(
-                                                      jsonDecode(r.payload)
-                                                          as Map,
-                                                    ).status
-                                                  : (jsonDecode(r.payload)
-                                                        as Map)['status']) ==
-                                              filter)),
-                      )
-                      .toList()
-                    ..sort(
-                      (a, b) => labels
-                          .title(kind, jsonDecode(a.payload) as Map)
-                          .compareTo(
-                            labels.title(kind, jsonDecode(b.payload) as Map),
-                          ),
-                    );
+                                              ).status
+                                            : (jsonDecode(r.payload)
+                                                as Map)['status']) ==
+                                        filter)),
+                  )
+                  .toList()
+                ..sort(
+                  (a, b) => labels
+                      .title(kind, jsonDecode(a.payload) as Map)
+                      .compareTo(
+                        labels.title(kind, jsonDecode(b.payload) as Map),
+                      ),
+                );
               if (records.isEmpty) {
                 return Card(
                   child: EmptyPanel(
@@ -1066,9 +1061,11 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                             Chip(
                               backgroundColor: switch (membership?.status) {
                                 'expired' ||
-                                'cancelled' => const Color(0xFFFFE0E0),
+                                'cancelled' =>
+                                  const Color(0xFFFFE0E0),
                                 'paused' ||
-                                'expiring_soon' => const Color(0xFFFFEBC2),
+                                'expiring_soon' =>
+                                  const Color(0xFFFFEBC2),
                                 'active' => const Color(0xFFDFF3E5),
                                 _ => null,
                               },
@@ -1111,10 +1108,10 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                 onPressed: m['status'] == 'paused'
                                     ? null
                                     : () => showServerOperation(
-                                        context,
-                                        'subscribe',
-                                        record: r,
-                                      ),
+                                          context,
+                                          'subscribe',
+                                          record: r,
+                                        ),
                                 icon: const Icon(Icons.autorenew),
                               ),
                             if (kind == 'subscriptions' && repo.access.finances)
@@ -1189,12 +1186,12 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                     if (context.mounted) {
                                       ScaffoldMessenger.of(context)
                                           .showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                'Unable to verify receipt. Reconnect and try again.',
-                                              ),
-                                            ),
-                                          );
+                                        const SnackBar(
+                                          content: Text(
+                                            'Unable to verify receipt. Reconnect and try again.',
+                                          ),
+                                        ),
+                                      );
                                     }
                                   }
                                 },
@@ -1223,12 +1220,12 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                     if (context.mounted) {
                                       ScaffoldMessenger.of(context)
                                           .showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                'Unable to mark notification read. Retry when connected.',
-                                              ),
-                                            ),
-                                          );
+                                        const SnackBar(
+                                          content: Text(
+                                            'Unable to mark notification read. Retry when connected.',
+                                          ),
+                                        ),
+                                      );
                                     }
                                   }
                                 },
@@ -1246,7 +1243,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                     path: m['profile_image'] as String?,
                                   )
                                 : CircleAvatar(
-                                    backgroundColor: const Color(0xFFECE9FA),
+                                    backgroundColor: const Color(0xFFEBF2FF),
                                     child: Icon(
                                       kind == 'members'
                                           ? Icons.person_outline
@@ -1330,9 +1327,8 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                         Text('${records.length} records · Page ${page + 1}'),
                         IconButton(
                           tooltip: 'Previous page',
-                          onPressed: page == 0
-                              ? null
-                              : () => setState(() => page--),
+                          onPressed:
+                              page == 0 ? null : () => setState(() => page--),
                           icon: const Icon(Icons.chevron_left),
                         ),
                         IconButton(
@@ -1380,12 +1376,12 @@ Future<void> showRecordEditor(
         text: f == 'price'
             ? ((data['price_minor'] as int? ?? 0) / 100).toStringAsFixed(2)
             : (data[f] ??
-                      (f == 'duration_value'
-                          ? '1'
-                          : f == 'allowed_pause_days'
-                          ? '0'
-                          : ''))
-                  .toString(),
+                    (f == 'duration_value'
+                        ? '1'
+                        : f == 'allowed_pause_days'
+                            ? '0'
+                            : ''))
+                .toString(),
       ),
   };
   var status = data['status'] as String? ?? 'active',
@@ -1414,8 +1410,7 @@ Future<void> showRecordEditor(
                       child: TextFormField(
                         controller: controllers[f],
                         decoration: InputDecoration(
-                          labelText:
-                              {
+                          labelText: {
                                 'full_name': 'Full name',
                                 'phone': 'Phone number',
                                 'email': 'Email address',
@@ -1533,12 +1528,11 @@ Future<void> showRecordEditor(
                         'status': status,
                       };
                       if (member) {
-                        values['email'] = (values['email'] as String)
-                            .toLowerCase();
+                        values['email'] =
+                            (values['email'] as String).toLowerCase();
                         values['phone'] = (values['phone'] as String)
                             .replaceAll(RegExp(r'[\s()-]'), '');
-                        values['joining_date'] =
-                            data['joining_date'] ??
+                        values['joining_date'] = data['joining_date'] ??
                             DateTime.now()
                                 .toUtc()
                                 .add(const Duration(hours: 4))
@@ -1575,8 +1569,8 @@ Future<void> showRecordEditor(
               busy
                   ? 'Saving…'
                   : member
-                  ? 'Save member'
-                  : 'Save package',
+                      ? 'Save member'
+                      : 'Save package',
             ),
           ),
         ],
@@ -1635,8 +1629,8 @@ class SyncCenter extends StatelessWidget {
                                       ))
                                     .go();
                                 await (repo.db.delete(
-                                      repo.db.syncCheckpoints,
-                                    )..where((c) => c.scope.equals(repo.scope)))
+                                  repo.db.syncCheckpoints,
+                                )..where((c) => c.scope.equals(repo.scope)))
                                     .go();
                                 if (context.mounted) {
                                   await context.read<SyncEngine>().sync();
@@ -1665,64 +1659,65 @@ class SyncCenter extends StatelessWidget {
                           child: const Text('Check confirmation'),
                         )
                       : op.state == 'conflict' || op.state == 'approval'
-                      ? TextButton(
-                          onPressed: () async {
-                            final discard = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('Discard local change?'),
-                                content: SingleChildScrollView(
-                                  child: SelectableText(
-                                    'Local change:\n${op.payload}\n\nThe server record will be fetched again. This discards only the uncommitted local operation.',
-                                  ),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, false),
-                                    child: const Text('Keep local change'),
-                                  ),
-                                  FilledButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, true),
-                                    child: const Text(
-                                      'Discard and fetch server',
+                          ? TextButton(
+                              onPressed: () async {
+                                final discard = await showDialog<bool>(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text('Discard local change?'),
+                                    content: SingleChildScrollView(
+                                      child: SelectableText(
+                                        'Local change:\n${op.payload}\n\nThe server record will be fetched again. This discards only the uncommitted local operation.',
+                                      ),
                                     ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, false),
+                                        child: const Text('Keep local change'),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, true),
+                                        child: const Text(
+                                          'Discard and fetch server',
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                            );
-                            if (discard != true) return;
-                            await repo.db.transaction(() async {
-                              await (repo.db.delete(repo.db.syncOperations)
-                                    ..where(
-                                      (o) =>
-                                          o.id.equals(op.id) &
-                                          o.scope.equals(repo.scope),
-                                    ))
-                                  .go();
-                              await (repo.db.delete(repo.db.cachedRecords)
-                                    ..where(
-                                      (r) =>
-                                          r.scope.equals(repo.scope) &
-                                          r.id.equals(op.recordId) &
-                                          r.kind.equals(op.kind),
-                                    ))
-                                  .go();
-                              await (repo.db.delete(
-                                repo.db.syncCheckpoints,
-                              )..where((c) => c.scope.equals(repo.scope))).go();
-                            });
-                            if (context.mounted) {
-                              await context.read<SyncEngine>().sync();
-                            }
-                          },
-                          child: const Text('Resolve'),
-                        )
-                      : TextButton(
-                          onPressed: () => repo.retry(op.id),
-                          child: const Text('Retry'),
-                        ),
+                                );
+                                if (discard != true) return;
+                                await repo.db.transaction(() async {
+                                  await (repo.db.delete(repo.db.syncOperations)
+                                        ..where(
+                                          (o) =>
+                                              o.id.equals(op.id) &
+                                              o.scope.equals(repo.scope),
+                                        ))
+                                      .go();
+                                  await (repo.db.delete(repo.db.cachedRecords)
+                                        ..where(
+                                          (r) =>
+                                              r.scope.equals(repo.scope) &
+                                              r.id.equals(op.recordId) &
+                                              r.kind.equals(op.kind),
+                                        ))
+                                      .go();
+                                  await (repo.db.delete(
+                                    repo.db.syncCheckpoints,
+                                  )..where((c) => c.scope.equals(repo.scope)))
+                                      .go();
+                                });
+                                if (context.mounted) {
+                                  await context.read<SyncEngine>().sync();
+                                }
+                              },
+                              child: const Text('Resolve'),
+                            )
+                          : TextButton(
+                              onPressed: () => repo.retry(op.id),
+                              child: const Text('Retry'),
+                            ),
                 ),
               ),
           ],

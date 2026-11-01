@@ -131,12 +131,12 @@ class MemberPhoto extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final placeholder = Container(
-      color: const Color(0xFFECE9FA),
+      color: const Color(0xFFEBF2FF),
       alignment: Alignment.center,
       child: Icon(Icons.person_outline, size: size * .55),
     );
     return ClipRRect(
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: BorderRadius.circular(16),
       child: SizedBox(
         width: size,
         height: size,

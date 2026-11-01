@@ -229,8 +229,8 @@ Future<void> showServerOperation(
                         width: double.infinity,
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEFF7F2),
-                          borderRadius: BorderRadius.circular(6),
+                          color: const Color(0xFFEBF2FF),
+                          borderRadius: BorderRadius.circular(16),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,

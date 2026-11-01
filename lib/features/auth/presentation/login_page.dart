@@ -211,7 +211,7 @@ class _LoginPageState extends State<LoginPage> {
                         'Your workspace. Your team. A stronger community.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Color(0xFF657570),
+                          color: Color(0xFF8590A3),
                           fontSize: 12,
                         ),
                       ),

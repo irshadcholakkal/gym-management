@@ -217,7 +217,7 @@ class _SignupPageState extends State<SignupPage> {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF657570),
+                          color: Color(0xFF8590A3),
                         ),
                       ),
                       const SizedBox(height: 12),
