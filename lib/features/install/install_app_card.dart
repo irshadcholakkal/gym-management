@@ -22,11 +22,11 @@ class _InstallAppCardState extends State<InstallAppCard> {
       if (result == 'installed' || result == 'dismissed') return;
       final message = switch (result) {
         'accepted' =>
-          'Installation requested. Allow your browser to finish installing, then find GymPro in your apps, app drawer, Start menu or Dock. Your launcher may not add a home-screen icon automatically.',
+          'Web app installation requested. Complete the browser confirmation, then open GymPro from your device app launcher. It opens in its own app window.',
         'ios' =>
           'Open GymPro in Safari. Tap Share, choose Add to Home Screen, then tap Add. If shown, keep Open as Web App enabled.',
         'android' =>
-          'Open your browser menu and choose Install app or Add to Home screen. If the option is missing, open GymPro in Chrome and try again.',
+          'Open GymPro in Chrome. Open the browser menu, choose Install and create shortcut, then choose Install. On older versions, choose Install app.',
         'mac' =>
           'In Safari, choose File → Add to Dock. In Chrome or Edge, use the install icon in the address bar or the browser menu’s Install app option.',
         _ =>
@@ -103,13 +103,11 @@ class _InstallAppCardState extends State<InstallAppCard> {
             const SizedBox(height: 8),
             Text(installed
                 ? 'GymPro is installed on this device.'
-                : 'Install GymPro as a Progressive Web App (PWA) through your browser.'),
+                : 'Install GymPro as a standalone web app through your browser.'),
             const SizedBox(height: 10),
-            const Text(
-                '? Adds an app icon to your home screen, desktop or apps list.\n'
-                '? Opens in its own app window.\n'
-                '? Supports cached data and some offline work. Saved changes sync when connected.\n'
-                '? Receives updates through App & updates.'),
+            const Text('Opens in its own app window.\n'
+                'Supports cached data and some offline work. Saved changes sync when connected.\n'
+                'Receives updates through App & updates.'),
             const SizedBox(height: 8),
             const Text(
                 'Browser installation does not require you to download an APK or EXE file.'),
@@ -123,7 +121,7 @@ class _InstallAppCardState extends State<InstallAppCard> {
                   ? 'Already installed'
                   : busy
                       ? 'Opening installer…'
-                      : 'Install app'),
+                      : 'Install web app'),
             ),
             if (state != 'native') ...[
               const SizedBox(height: 8),
