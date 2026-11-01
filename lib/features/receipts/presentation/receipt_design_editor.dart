@@ -210,10 +210,13 @@ class _ReceiptDesignEditorState extends State<ReceiptDesignEditor> {
                                   Padding(
                                       padding:
                                           const EdgeInsets.only(bottom: 12),
-                                      child: SelectableText(ReceiptHtml
-                                          .placeholders
-                                          .map((key) => '{{$key}}')
-                                          .join('  ')))
+                                      child: SizedBox(
+                                          height: 100,
+                                          child: SingleChildScrollView(
+                                              child: SelectableText(ReceiptHtml
+                                                  .placeholders
+                                                  .map((key) => '{{$key}}')
+                                                  .join('  ')))))
                                 ]),
                             const SizedBox(height: 8),
                             Expanded(
@@ -237,7 +240,12 @@ class _ReceiptDesignEditorState extends State<ReceiptDesignEditor> {
                                         setState(() => dirty = changed);
                                     })),
                             const SizedBox(height: 8),
-                            Text(dirty ? 'Unsaved changes' : 'Saved design',
+                            Text(
+                                dirty
+                                    ? 'Unsaved changes'
+                                    : version == 0
+                                        ? 'Default design (not saved)'
+                                        : 'Saved design',
                                 style: Theme.of(context).textTheme.bodySmall),
                           ])))));
 }

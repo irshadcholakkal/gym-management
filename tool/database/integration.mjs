@@ -302,5 +302,16 @@ await check('Disabling administration blocks team access even for the admin role
   await login(otherEmployee);assert.equal(await rpc('can_administer',[gymA]),false);
   await assert.rejects(()=>rpc('set_employee_access',[gymA,otherEmployee,'admin','other.admin',{}]),e=>e.code==='42501');
 });
+
+await check('Receipt HTML design persists per gym, with role checks and concurrent edit protection',async()=>{
+  const html='<h1>{{receipt_number}}</h1><p>Custom receipt</p>';
+  await login(a);let design=await rpc('save_receipt_design',[gymA,html,0]);assert.equal(design.html,html);assert.equal(design.version,1);
+  await assert.rejects(()=>rpc('save_receipt_design',[gymA,html,0]),e=>e.code==='40001');
+  design=await rpc('save_receipt_design',[gymA,html+'<!-- updated -->',1]);assert.equal(design.version,2);
+  await login(b);assert.equal((await db.query('select * from public.receipt_designs where gym_id=$1',[gymA])).rows.length,0);
+  await assert.rejects(()=>rpc('save_receipt_design',[gymA,'Other gym',2]),e=>e.code==='42501');
+  await login(trainer);await assert.rejects(()=>rpc('save_receipt_design',[gymA,'Trainer',2]),e=>e.code==='42501');
+  await login(a);await assert.rejects(()=>rpc('save_receipt_design',[gymA,'',2]));
+});
 console.log(`${passed} database integration checks passed. Hosted Auth, Realtime and Storage were stubbed.`);
 await db.close();

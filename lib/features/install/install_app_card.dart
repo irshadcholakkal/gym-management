@@ -21,7 +21,7 @@ class _InstallAppCardState extends State<InstallAppCard> {
       if (result == 'installed' || result == 'dismissed') return;
       final message = switch (result) {
         'accepted' =>
-          'Installation requested. Follow your browser’s instructions to finish, then open GymPro from your home screen or app launcher.',
+          'Installation requested. Allow your browser to finish installing, then find GymPro in your apps, app drawer, Start menu or Dock. Your launcher may not add a home-screen icon automatically.',
         'ios' =>
           'Open GymPro in Safari. Tap Share, choose Add to Home Screen, then tap Add. If shown, keep Open as Web App enabled.',
         'android' =>
@@ -73,18 +73,18 @@ class _InstallAppCardState extends State<InstallAppCard> {
             const SizedBox(height: 8),
             Text(installed
                 ? 'You’re already using GymPro as an app.'
-                : 'Add GymPro to your home screen or desktop for quick access in its own app window.'),
+                : 'Install GymPro as a standalone app that opens in its own window.'),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: installed || busy ? null : install,
               icon: Icon(installed
                   ? Icons.check_circle_outline
-                  : Icons.download_rounded),
+                  : Icons.install_mobile_rounded),
               label: Text(installed
                   ? 'Already installed'
                   : busy
                       ? 'Opening installer…'
-                      : 'Install app'),
+                      : 'Install GymPro app'),
             ),
           ],
         ),

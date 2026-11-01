@@ -22,7 +22,7 @@ begin
   insert into public.receipt_designs(gym_id,html) values(p_gym,p_html)
   on conflict(gym_id) do update set html=excluded.html,version=receipt_designs.version+1,updated_at=now()
   returning * into result;
-  insert into public.audit_logs(gym_id,actor_id,action,after_data) values(p_gym,auth.uid(),'receipt:design',jsonb_build_object('version',result.version));
+  insert into public.audit_logs(gym_id,actor_id,action,record_id,after_data) values(p_gym,auth.uid(),'receipt:design',p_gym,jsonb_build_object('version',result.version));
   return to_jsonb(result);
 end $$;
 revoke all on function public.save_receipt_design(uuid,text,bigint) from public,anon;
