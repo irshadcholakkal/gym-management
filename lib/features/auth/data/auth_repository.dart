@@ -91,7 +91,9 @@ class SupabaseAuthRepository implements AuthRepository {
     final user = client.auth.currentUser!;
     final rows = await client
         .from('gym_users')
-        .select('gym_id, role, access_options, gyms(name)')
+        // Select the available membership columns so pre-migration databases
+        // can still authorize existing users. Missing options keep role defaults.
+        .select('*, gyms(name)')
         .eq('user_id', user.id)
         .eq('active', true)
         .order('created_at')

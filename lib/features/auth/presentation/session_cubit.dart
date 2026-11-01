@@ -66,7 +66,8 @@ class SessionCubit extends Cubit<SessionState> {
       }
     } on PostgrestException catch (error) {
       if (!isClosed && generation == _generation) {
-        final message = ['PGRST205', '42P01', 'PGRST202'].contains(error.code)
+        final message = ['PGRST205', '42P01', 'PGRST202', '42703', 'PGRST204']
+                .contains(error.code)
             ? 'The gym database is not configured yet. Contact the app administrator to apply the database migrations.'
             : 'The server could not authorize gym access. Please retry or contact your administrator.';
         emit(SessionState(SessionStatus.denied, message: message));
