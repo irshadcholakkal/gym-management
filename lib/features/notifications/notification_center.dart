@@ -9,7 +9,7 @@ import '../../core/record_labels.dart';
 import '../../core/sync/sync_engine.dart';
 import '../../core/sync/workspace_repository.dart';
 import '../subscriptions/data/operations_repository.dart';
-import 'data/push_client.dart';
+import 'push_notification_controls.dart';
 
 bool currentNotification(Map data, String user) =>
     data['recipient_id'] == user && data['superseded_at'] == null;
@@ -96,8 +96,6 @@ class NotificationCenter extends StatefulWidget {
 
 class _NotificationCenterState extends State<NotificationCenter> {
   String filter = 'all';
-  bool enabling = false;
-  String? pushMessage;
   final reading = <String>{};
   Future<void> markRead(CachedRecord record) async {
     if (!reading.add(record.id)) return;
@@ -146,44 +144,7 @@ class _NotificationCenterState extends State<NotificationCenter> {
                 selected: filter == value,
                 onSelected: (_) => setState(() => filter = value),
               ),
-            OutlinedButton.icon(
-              onPressed: enabling
-                  ? null
-                  : () async {
-                      setState(() {
-                        enabling = true;
-                        pushMessage = null;
-                      });
-                      try {
-                        final result = await subscribePush(
-                          const String.fromEnvironment('VAPID_PUBLIC_KEY'),
-                        );
-                        if (!context.mounted) return;
-                        await context.read<OperationsRepository>().registerPush(
-                              jsonDecode(result) as Map<String, dynamic>,
-                            );
-                        if (mounted) {
-                          setState(
-                            () => pushMessage =
-                                'Push enabled on this device. Reminders will also appear here.',
-                          );
-                        }
-                      } catch (error) {
-                        if (mounted) {
-                          setState(
-                            () => pushMessage =
-                                'Push could not be enabled. ${error.toString()}',
-                          );
-                        }
-                      } finally {
-                        if (mounted) setState(() => enabling = false);
-                      }
-                    },
-              icon: const Icon(Icons.notifications_active_outlined),
-              label: Text(
-                enabling ? 'Enabling...' : 'Enable push',
-              ),
-            ),
+            const PushNotificationControls(),
             IconButton(
               tooltip: 'Refresh notifications',
               onPressed: () => context.read<SyncEngine>().sync(),
@@ -195,11 +156,6 @@ class _NotificationCenterState extends State<NotificationCenter> {
         const Text(
           'Membership warnings and reminders. Select a notification to review its membership.',
         ),
-        if (pushMessage != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Text(pushMessage!),
-          ),
         if (wrongGym)
           const Padding(
             padding: EdgeInsets.all(12),

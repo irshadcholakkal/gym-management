@@ -43,6 +43,14 @@
     }
     return registration.waiting ? 'ready' : registration.installing ? 'checking' : 'current';
   };
+  window.gymproPushStatus = async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window) || !window.isSecureContext) {
+      return JSON.stringify({ permission: 'unsupported', subscription: null });
+    }
+    const registration = await navigator.serviceWorker.getRegistration();
+    const subscription = registration ? await registration.pushManager.getSubscription() : null;
+    return JSON.stringify({ permission: Notification.permission, subscription: subscription ? subscription.toJSON() : null });
+  };
   window.gymproPushSubscribe = async key => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) throw new Error('This browser does not support web push. In-app reminders remain available.');
     if (!window.isSecureContext) throw new Error('Push requires HTTPS.');

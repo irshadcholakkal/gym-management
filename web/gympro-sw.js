@@ -40,6 +40,7 @@ self.addEventListener('push', event => {
   route.hash = '/notifications' + (query.size ? '?' + query.toString() : '');
   // Never put member names or contact details on the lock screen.
   const messages = {
+    test: 'Test successful. Push notifications are working on this device.',
     expiry_7: 'A membership expires in 7 days. Review the renewal reminder.',
     expiry_3: 'A membership expires in 3 days. Review the renewal reminder.',
     expiry_1: 'A membership expires tomorrow. Review the renewal reminder.',

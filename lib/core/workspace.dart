@@ -1,3 +1,4 @@
+import '../features/notifications/push_notification_controls.dart';
 import '../features/receipts/presentation/receipt_design_editor.dart';
 import '../features/receipts/presentation/receipt_preview.dart';
 import '../features/receipts/data/receipt_design_repository.dart';
@@ -1851,6 +1852,8 @@ class SettingsPanel extends StatelessWidget {
     return ListView(
       children: [
         const ReceiptDesignCard(),
+        const SizedBox(height: 16),
+        const PushNotificationSettingsCard(),
         const SizedBox(height: 16),
         const InstallAppCard(),
         const SizedBox(height: 20),

@@ -112,3 +112,9 @@ Authorization is enforced by database policies and business RPCs. Access changes
 ### HTML receipt design
 
 Apply `202611010004_receipt_design.sql` to enable gym-wide design storage. In Settings ? Receipt design ? Edit HTML design, edit HTML/CSS with the listed `{{placeholders}}`, preview a sample, and save. Restore default changes the editor; save to apply it. PWA receipt previews use the saved layout with finalized receipt snapshots and support Print / Save PDF and HTML download. Native app receipt PDFs retain their existing renderer. HTML previews disable scripts and remote resources; embed logos as raster data images. Existing receipt viewing falls back to the default layout when the optional design table is not deployed.
+
+### Push status and test notification
+
+Notifications and Settings show Push enabled only when this browser grants notifications, has a subscription, and the signed-in user has an enabled subscription for the current gym. Settings ? Push notifications ? Test notification sends a real push through the server to this device only. Deploy `test-push` with `supabase functions deploy test-push --no-verify-jwt` (the handler validates the session with Auth and uses caller RLS). Configure `APP_ORIGIN`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` in Edge secrets, matching reminder delivery. No database migration is needed. Redeploy the web app to publish the new controls and service-worker test message.
+
+Run `node --test tool/push_test.mjs`, `flutter test test/push_settings_test.dart` and `npx deno test --allow-env=ECE_KEYLOG supabase/functions/test-push/handler_test.ts`. Server tests mock delivery; a live device delivery test still requires the deployed function and notification permission.

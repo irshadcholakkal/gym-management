@@ -24,3 +24,6 @@ verify_jwt = false
 
 [functions.employee-login]
 verify_jwt = false
+
+[functions.test-push]
+verify_jwt = false
