@@ -1,3 +1,5 @@
+import '../features/employees/employee_access.dart';
+import '../features/install/install_app_card.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -231,6 +233,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
     return MultiRepositoryProvider(
       providers: [
         RepositoryProvider.value(value: repository),
+        RepositoryProvider<SupabaseClient>.value(value: widget.client),
         RepositoryProvider<MemberPhotos>(
           create: (_) => MemberPhotos(widget.client, repository),
         ),
@@ -291,6 +294,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                               const NotificationBell(),
                               SizedBox(width: wide ? 12 : 4),
                               CircleAvatar(
+                                radius: wide ? 20 : 16,
                                 backgroundColor: const Color(0xFFEBF2FF),
                                 child: Text(
                                   widget.access.name
@@ -359,7 +363,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                                 bottom: false,
                                 child: Padding(
                                   padding:
-                                      const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                                      const EdgeInsets.fromLTRB(12, 8, 12, 0),
                                   child: widget.child,
                                 ),
                               ),
@@ -485,11 +489,9 @@ class Dashboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final repo = context.read<WorkspaceRepository>();
+    final compact = MediaQuery.sizeOf(context).width < 600;
     return StreamBuilder<List<CachedRecord>>(
-      stream: (repo.db.select(
-        repo.db.cachedRecords,
-      )..where((r) => r.scope.equals(repo.scope)))
-          .watch(),
+      stream: repo.records,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return const Text(
@@ -631,32 +633,34 @@ class Dashboard extends StatelessWidget {
           children: [
             LayoutBuilder(
               builder: (context, box) => Wrap(
-                spacing: 16,
-                runSpacing: 16,
+                spacing: compact ? 12 : 16,
+                runSpacing: compact ? 12 : 16,
                 children: [
                   for (final m in metrics)
                     SizedBox(
                       width: box.maxWidth < 600
-                          ? (box.maxWidth - 16) / 2
+                          ? (box.maxWidth - 12) / 2
                           : (box.maxWidth -
                                   16 * (box.maxWidth > 1200 ? 3 : 1)) /
                               (box.maxWidth > 1200 ? 4 : 2),
                       child: Card(
                         color: const Color(0xFFF1F3F6),
                         child: Padding(
-                          padding: const EdgeInsets.all(16),
+                          padding: EdgeInsets.all(compact ? 12 : 16),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Container(
-                                padding: const EdgeInsets.all(12),
+                                padding: EdgeInsets.all(compact ? 8 : 12),
                                 decoration: BoxDecoration(
                                   color: GymTheme.softBlue,
                                   borderRadius: BorderRadius.circular(16),
                                 ),
-                                child: Icon(m.$3, color: GymTheme.blue),
+                                child: Icon(m.$3,
+                                    color: GymTheme.blue,
+                                    size: compact ? 18 : 24),
                               ),
-                              const SizedBox(height: 20),
+                              SizedBox(height: compact ? 12 : 20),
                               Text(
                                 m.$2,
                                 style:
@@ -684,7 +688,7 @@ class Dashboard extends StatelessWidget {
             ],
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: EdgeInsets.all(compact ? 16 : 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -842,7 +846,9 @@ class RecordDirectory extends StatefulWidget {
 class _RecordDirectoryState extends State<RecordDirectory> {
   String query = '', filter = 'all';
   int page = 0;
-  Timer? _statusTimer;
+  Timer? _statusTimer, _searchTimer;
+  List<CachedRecord>? _labelRecords;
+  RecordLabels? _labels;
   @override
   void initState() {
     super.initState();
@@ -854,6 +860,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
   @override
   void dispose() {
     _statusTimer?.cancel();
+    _searchTimer?.cancel();
     super.dispose();
   }
 
@@ -861,6 +868,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
   void didUpdateWidget(RecordDirectory oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.kind != widget.kind) {
+      _searchTimer?.cancel();
       query = '';
       filter = 'all';
       page = 0;
@@ -889,18 +897,26 @@ class _RecordDirectoryState extends State<RecordDirectory> {
             ),
           ),
         Wrap(
-          spacing: 12,
-          runSpacing: 12,
+          spacing: 8,
+          runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             SizedBox(
-              width: MediaQuery.sizeOf(context).width < 600 ? 240 : 320,
+              width: MediaQuery.sizeOf(context).width < 600
+                  ? double.infinity
+                  : 320,
               child: TextField(
                 key: ValueKey(kind),
-                onChanged: (v) => setState(() {
-                  query = v.toLowerCase();
-                  page = 0;
-                }),
+                onChanged: (value) {
+                  _searchTimer?.cancel();
+                  _searchTimer = Timer(const Duration(milliseconds: 180), () {
+                    if (!mounted) return;
+                    setState(() {
+                      query = value.toLowerCase();
+                      page = 0;
+                    });
+                  });
+                },
                 decoration: const InputDecoration(
                   hintText: 'Search records…',
                   prefixIcon: Icon(Icons.search),
@@ -993,13 +1009,10 @@ class _RecordDirectoryState extends State<RecordDirectory> {
               ),
           ],
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 12),
         Expanded(
           child: StreamBuilder<List<CachedRecord>>(
-            stream: (repo.db.select(
-              repo.db.cachedRecords,
-            )..where((r) => r.scope.equals(repo.scope)))
-                .watch(),
+            stream: repo.records,
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 return const Text(
@@ -1009,7 +1022,11 @@ class _RecordDirectoryState extends State<RecordDirectory> {
               if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
               }
-              final labels = RecordLabels(snapshot.data!);
+              if (!identical(_labelRecords, snapshot.data)) {
+                _labelRecords = snapshot.data;
+                _labels = RecordLabels(snapshot.data!);
+              }
+              final labels = _labels!;
               final records = snapshot.data!
                   .where(
                     (r) =>
@@ -1020,7 +1037,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                     labels
                                         .title(
                                           kind,
-                                          jsonDecode(r.payload) as Map,
+                                          labels.lookup(kind, r.id),
                                         )
                                         .toLowerCase()
                                         .contains(query)) &&
@@ -1029,7 +1046,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                         r.syncState != 'synced' ||
                                     (kind == 'subscriptions'
                                             ? MembershipStatus(
-                                                jsonDecode(r.payload) as Map,
+                                                labels.lookup(kind, r.id),
                                               ).status
                                             : (jsonDecode(r.payload)
                                                 as Map)['status']) ==
@@ -1037,11 +1054,10 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                   )
                   .toList()
                 ..sort(
-                  (a, b) => labels
-                      .title(kind, jsonDecode(a.payload) as Map)
-                      .compareTo(
-                        labels.title(kind, jsonDecode(b.payload) as Map),
-                      ),
+                  (a, b) =>
+                      labels.title(kind, labels.lookup(kind, a.id)).compareTo(
+                            labels.title(kind, labels.lookup(kind, b.id)),
+                          ),
                 );
               if (records.isEmpty) {
                 return Card(
@@ -1067,13 +1083,22 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                             const Divider(height: 1),
                         itemBuilder: (context, i) {
                           final r = records[start + i],
-                              m = jsonDecode(r.payload) as Map<String, dynamic>;
+                              m = labels.lookup(kind, r.id);
                           final membership = kind == 'subscriptions'
                               ? MembershipStatus(m)
                               : null;
                           final compact =
                               MediaQuery.sizeOf(context).width < 760;
                           final actions = <Widget>[
+                            if (kind == 'employees' &&
+                                repo.access.administer &&
+                                m['access_role'] != 'owner')
+                              IconButton(
+                                  tooltip: 'Manage access',
+                                  onPressed: () =>
+                                      showEmployeeAccess(context, r),
+                                  icon: const Icon(
+                                      Icons.admin_panel_settings_outlined)),
                             if (m['price_minor'] != null)
                               Text(
                                 Money.format(
@@ -1257,16 +1282,17 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                               ),
                           ];
                           final tile = ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 8,
-                            ),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: compact ? 12 : 20,
+                                vertical: compact ? 2 : 8),
                             leading: kind == 'members' && widget.photos != null
                                 ? MemberPhoto(
                                     photos: widget.photos!,
                                     path: m['profile_image'] as String?,
+                                    size: compact ? 34 : 44,
                                   )
                                 : CircleAvatar(
+                                    radius: compact ? 16 : 20,
                                     backgroundColor: const Color(0xFFEBF2FF),
                                     child: Icon(
                                       kind == 'members'
@@ -1278,13 +1304,19 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                             subtitle: Text(
                               [
                                 labels.subtitle(kind, m),
+                                if (kind == 'employees' &&
+                                    m['employee_number'] != null)
+                                  'EMP-${m['employee_number']} ? ${m['access_role'] ?? 'staff'}',
+                                if (kind == 'employees' &&
+                                    m['username'] != null)
+                                  'Username: ${m['username']}',
                                 if (membership != null &&
                                     membership.countdown.isNotEmpty)
                                   membership.countdown,
                               ].join('\n'),
                             ),
                             trailing: compact
-                                ? null
+                                ? RecordActionsMenu(actions: actions)
                                 : Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: actions,
@@ -1311,7 +1343,10 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               tile,
-                              if (compact)
+                              if (compact &&
+                                  actions.any((action) =>
+                                      action is! IconButton &&
+                                      action is! SizedBox))
                                 Padding(
                                   padding: const EdgeInsets.fromLTRB(
                                     16,
@@ -1326,15 +1361,8 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                         WrapCrossAlignment.center,
                                     children: [
                                       for (final action in actions)
-                                        if (action is IconButton)
-                                          TextButton.icon(
-                                            onPressed: action.onPressed,
-                                            icon: action.icon,
-                                            label: Text(
-                                              action.tooltip ?? "Open",
-                                            ),
-                                          )
-                                        else
+                                        if (action is! IconButton &&
+                                            action is! SizedBox)
                                           action,
                                     ],
                                   ),
@@ -1348,7 +1376,13 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Text('${records.length} records · Page ${page + 1}'),
+                        Expanded(
+                            child: Text(
+                                '${records.length} records - Page ${page + 1}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.right,
+                                style: Theme.of(context).textTheme.bodySmall)),
                         IconButton(
                           tooltip: 'Previous page',
                           onPressed:
@@ -1608,6 +1642,32 @@ Future<void> showRecordEditor(
   }
 }
 
+class RecordActionsMenu extends StatelessWidget {
+  const RecordActionsMenu({super.key, required this.actions});
+  final List<Widget> actions;
+  @override
+  Widget build(BuildContext context) {
+    final buttons = actions.whereType<IconButton>().toList();
+    if (buttons.isEmpty) return const SizedBox.shrink();
+    return PopupMenuButton<int>(
+      tooltip: 'Record actions',
+      icon: const Icon(Icons.more_horiz, size: 20),
+      onSelected: (index) => buttons[index].onPressed?.call(),
+      itemBuilder: (_) => [
+        for (var i = 0; i < buttons.length; i++)
+          PopupMenuItem(
+              value: i,
+              enabled: buttons[i].onPressed != null,
+              child: Row(children: [
+                buttons[i].icon,
+                const SizedBox(width: 12),
+                Flexible(child: Text(buttons[i].tooltip ?? 'Open'))
+              ]))
+      ],
+    );
+  }
+}
+
 class SyncCenter extends StatelessWidget {
   const SyncCenter({super.key});
   @override
@@ -1758,6 +1818,8 @@ class SettingsPanel extends StatelessWidget {
     final access = context.read<WorkspaceRepository>().access;
     return ListView(
       children: [
+        const InstallAppCard(),
+        const SizedBox(height: 20),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(24),

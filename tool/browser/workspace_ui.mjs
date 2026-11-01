@@ -55,7 +55,7 @@ try {
   await route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:JSON.stringify(data)});
  });
  await page.goto('http://127.0.0.1:8098');
- await typeInto(page.getByRole('textbox',{name:'Work email',exact:true}),'owner@example.test');
+ await typeInto(page.getByRole('textbox',{name:'Email, employee ID or username',exact:true}),'owner@example.test');
  await typeInto(page.getByLabel('Password',{exact:true}),'test-password');
  await page.getByRole('button',{name:'Sign in',exact:true}).click();
  await page.getByText(/Discounts given this month/).first().waitFor({timeout:30000});

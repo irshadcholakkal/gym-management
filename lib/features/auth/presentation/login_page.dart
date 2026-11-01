@@ -107,25 +107,39 @@ class _LoginPageState extends State<LoginPage> {
                         recovery
                             ? 'Choose a new password'
                             : _reset
-                            ? 'Reset your password'
-                            : 'Welcome back. Let’s keep your gym moving.',
+                                ? 'Reset your password'
+                                : 'Welcome back. Let’s keep your gym moving.',
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 32),
                       if (!recovery)
                         TextFormField(
                           controller: _email,
-                          autofillHints: const [AutofillHints.email],
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(
-                            labelText: 'Work email',
-                            prefixIcon: Icon(Icons.mail_outline),
+                          autofillHints: [
+                            _reset
+                                ? AutofillHints.email
+                                : AutofillHints.username
+                          ],
+                          keyboardType: _reset
+                              ? TextInputType.emailAddress
+                              : TextInputType.text,
+                          autocorrect: false,
+                          decoration: InputDecoration(
+                            labelText: _reset
+                                ? 'Work email'
+                                : 'Email, employee ID or username',
+                            prefixIcon: const Icon(Icons.person_outline),
                           ),
-                          validator: (v) =>
-                              RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
-                                  .hasMatch(v?.trim() ?? '')
-                              ? null
-                              : 'Enter a valid email address',
+                          validator: (v) {
+                            final value = v?.trim() ?? '';
+                            if (!_reset && value.isNotEmpty) return null;
+                            return RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+                                    .hasMatch(value)
+                                ? null
+                                : _reset
+                                    ? 'Enter a valid email address'
+                                    : 'Enter your email, employee ID or username';
+                          },
                         ),
                       if (!_reset || recovery) ...[
                         const SizedBox(height: 16),
@@ -142,9 +156,8 @@ class _LoginPageState extends State<LoginPage> {
                             labelText: 'Password',
                             prefixIcon: const Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
-                              tooltip: _obscure
-                                  ? 'Show password'
-                                  : 'Hide password',
+                              tooltip:
+                                  _obscure ? 'Show password' : 'Hide password',
                               onPressed: () =>
                                   setState(() => _obscure = !_obscure),
                               icon: Icon(
@@ -156,10 +169,10 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           validator: (v) =>
                               (v?.length ?? 0) < (recovery ? 12 : 1)
-                              ? recovery
-                                    ? 'Use at least 12 characters'
-                                    : 'Enter your password'
-                              : null,
+                                  ? recovery
+                                      ? 'Use at least 12 characters'
+                                      : 'Enter your password'
+                                  : null,
                         ),
                       ],
                       if (_message != null)
@@ -182,8 +195,8 @@ class _LoginPageState extends State<LoginPage> {
                                 recovery
                                     ? 'Save password'
                                     : _reset
-                                    ? 'Send reset link'
-                                    : 'Sign in',
+                                        ? 'Send reset link'
+                                        : 'Sign in',
                               ),
                       ),
                       if (!recovery)
@@ -191,9 +204,9 @@ class _LoginPageState extends State<LoginPage> {
                           onPressed: _busy
                               ? null
                               : () => setState(() {
-                                  _reset = !_reset;
-                                  _message = null;
-                                }),
+                                    _reset = !_reset;
+                                    _message = null;
+                                  }),
                           child: Text(
                             _reset ? 'Back to sign in' : 'Forgot password?',
                           ),

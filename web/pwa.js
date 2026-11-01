@@ -1,4 +1,27 @@
 (() => {
+  let installPrompt = null;
+  let installed = false;
+  const standalone = () => installed || window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
+  window.gymproInstallState = () => standalone() ? 'installed' : installPrompt ? 'ready' : 'manual';
+  window.addEventListener('beforeinstallprompt', event => {
+    event.preventDefault();
+    installPrompt = event;
+  });
+  window.addEventListener('appinstalled', () => { installed = true; installPrompt = null; });
+  window.gymproInstallApp = async () => {
+    if (standalone()) return 'installed';
+    if (installPrompt) {
+      const prompt = installPrompt;
+      installPrompt = null;
+      await prompt.prompt();
+      return (await prompt.userChoice).outcome;
+    }
+    const agent = navigator.userAgent || '';
+    if (/iPad|iPhone|iPod/.test(agent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) return 'ios';
+    if (/Android/.test(agent)) return 'android';
+    if (/Mac/.test(navigator.platform || '')) return 'mac';
+    return 'manual';
+  };
   window.gymproPushSubscribe = async key => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) throw new Error('This browser does not support web push. In-app reminders remain available.');
     if (!window.isSecureContext) throw new Error('Push requires HTTPS.');

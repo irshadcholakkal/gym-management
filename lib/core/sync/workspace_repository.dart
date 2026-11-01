@@ -10,13 +10,22 @@ class WorkspaceRepository {
   WorkspaceRepository(this.db, this.access);
   final GymDatabase db;
   final GymAccess access;
-  String get scope => '${access.gymId}:${access.userId}:${access.role.name}';
-  Stream<List<CachedRecord>> watch(String kind) => (db.select(
-    db.cachedRecords,
-  )..where((r) => r.scope.equals(scope) & r.kind.equals(kind))).watch();
-  Stream<List<SyncOperation>> watchOutbox() => (db.select(
-    db.syncOperations,
-  )..where((r) => r.scope.equals(scope))).watch();
+  String get scope => '${access.gymId}:${access.userId}:${access.role.name}'
+      '${access.permissionKey == '1111' ? '' : ':${access.permissionKey}'}';
+  // Stable query streams avoid resubscribing on every keystroke or sync update.
+  late final Stream<List<CachedRecord>> records = (db.select(db.cachedRecords)
+        ..where((r) => r.scope.equals(scope)))
+      .watch();
+  final _kindStreams = <String, Stream<List<CachedRecord>>>{};
+  Stream<List<CachedRecord>> watch(String kind) => _kindStreams.putIfAbsent(
+      kind,
+      () => (db.select(db.cachedRecords)
+            ..where((r) => r.scope.equals(scope) & r.kind.equals(kind)))
+          .watch());
+  late final Stream<List<SyncOperation>> _outboxStream =
+      (db.select(db.syncOperations)..where((r) => r.scope.equals(scope)))
+          .watch();
+  Stream<List<SyncOperation>> watchOutbox() => _outboxStream;
   Future<String> save(
     String kind,
     Map<String, dynamic> fields, {
@@ -59,14 +68,14 @@ class WorkspaceRepository {
     final recordId = id ?? const Uuid().v4();
 
     await db.transaction(() async {
-      final cached =
-          await (db.select(db.cachedRecords)..where(
-                (r) =>
-                    r.scope.equals(scope) &
-                    r.kind.equals(kind) &
-                    r.id.equals(recordId),
-              ))
-              .getSingleOrNull();
+      final cached = await (db.select(db.cachedRecords)
+            ..where(
+              (r) =>
+                  r.scope.equals(scope) &
+                  r.kind.equals(kind) &
+                  r.id.equals(recordId),
+            ))
+          .getSingleOrNull();
       final data = {
         ...?(cached == null
             ? null
@@ -75,17 +84,15 @@ class WorkspaceRepository {
         'id': recordId,
         'gym_id': access.gymId,
       };
-      final existing =
-          await (db.select(db.syncOperations)..where(
-                (o) => o.scope.equals(scope) & o.recordId.equals(recordId),
-              ))
-              .get();
+      final existing = await (db.select(db.syncOperations)
+            ..where(
+              (o) => o.scope.equals(scope) & o.recordId.equals(recordId),
+            ))
+          .get();
       if (existing.isNotEmpty) {
         throw StateError('Sync or resolve this record before editing again.');
       }
-      await db
-          .into(db.cachedRecords)
-          .insertOnConflictUpdate(
+      await db.into(db.cachedRecords).insertOnConflictUpdate(
             CachedRecordsCompanion.insert(
               scope: scope,
               kind: kind,
@@ -95,9 +102,7 @@ class WorkspaceRepository {
               syncState: const Value('pending'),
             ),
           );
-      await db
-          .into(db.syncOperations)
-          .insert(
+      await db.into(db.syncOperations).insert(
             SyncOperationsCompanion.insert(
               id: const Uuid().v4(),
               scope: scope,
@@ -112,20 +117,20 @@ class WorkspaceRepository {
     return recordId;
   }
 
-  Future<void> retry(String id) =>
-      (db.update(db.syncOperations)..where(
-            (o) =>
-                o.scope.equals(scope) &
-                o.id.equals(id) &
-                o.state.isNotIn(['conflict', 'approval', 'confirmation']) &
-                o.kind.isIn(['members', 'membership_packages']),
-          ))
+  Future<void> retry(String id) => (db.update(db.syncOperations)
+            ..where(
+              (o) =>
+                  o.scope.equals(scope) &
+                  o.id.equals(id) &
+                  o.state.isNotIn(['conflict', 'approval', 'confirmation']) &
+                  o.kind.isIn(['members', 'membership_packages']),
+            ))
           .write(
-            SyncOperationsCompanion(
-              state: const Value('pending'),
-              attempts: const Value(0),
-              error: const Value(null),
-              nextAttempt: Value(DateTime.now().toUtc()),
-            ),
-          );
+        SyncOperationsCompanion(
+          state: const Value('pending'),
+          attempts: const Value(0),
+          error: const Value(null),
+          nextAttempt: Value(DateTime.now().toUtc()),
+        ),
+      );
 }

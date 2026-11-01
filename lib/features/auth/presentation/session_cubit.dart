@@ -17,7 +17,7 @@ class SessionState {
 
 class SessionCubit extends Cubit<SessionState> {
   SessionCubit(this.repository)
-    : super(const SessionState(SessionStatus.loading)) {
+      : super(const SessionState(SessionStatus.loading)) {
     _subscription = repository.changes.listen((event) {
       if (event.event == AuthChangeEvent.passwordRecovery) {
         ++_generation;
@@ -26,11 +26,15 @@ class SessionCubit extends Cubit<SessionState> {
         unawaited(restore());
       }
     });
+    _accessTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (state.status == SessionStatus.signedIn) unawaited(restore());
+    });
     unawaited(restore());
   }
   final AuthRepository repository;
   StreamSubscription<AuthState>? _subscription;
   int _generation = 0;
+  Timer? _accessTimer;
   Future<void> restore() async {
     final generation = ++_generation;
     if (!repository.signedIn) {
@@ -44,7 +48,17 @@ class SessionCubit extends Cubit<SessionState> {
     try {
       final access = await repository.access();
       if (!isClosed && generation == _generation) {
-        emit(SessionState(SessionStatus.signedIn, access: access));
+        final previous = state.access;
+        if (state.status != SessionStatus.signedIn ||
+            previous == null ||
+            previous.gymId != access.gymId ||
+            previous.userId != access.userId ||
+            previous.role != access.role ||
+            previous.permissionKey != access.permissionKey ||
+            previous.name != access.name ||
+            previous.gymName != access.gymName) {
+          emit(SessionState(SessionStatus.signedIn, access: access));
+        }
       }
     } on NoGymAccessException {
       if (!isClosed && generation == _generation) {
@@ -66,7 +80,8 @@ class SessionCubit extends Cubit<SessionState> {
         emit(
           const SessionState(
             SessionStatus.denied,
-            message: 'Unable to verify gym access. Check your connection or contact your administrator.',
+            message:
+                'Unable to verify gym access. Check your connection or contact your administrator.',
           ),
         );
       }
@@ -81,6 +96,7 @@ class SessionCubit extends Cubit<SessionState> {
 
   @override
   Future<void> close() async {
+    _accessTimer?.cancel();
     await _subscription?.cancel();
     return super.close();
   }

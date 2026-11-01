@@ -20,17 +20,22 @@ class SyncStatus {
 
 class SyncEngine extends Cubit<SyncStatus> {
   SyncEngine(this.repository, this.client, {this.onAccessDenied})
-    : super(const SyncStatus()) {
+      : super(const SyncStatus()) {
     _stopConnectivity = onConnectivityRestored(() => unawaited(sync()));
     _timer = Timer.periodic(const Duration(seconds: 30), (_) => sync());
-    _outbox = repository.watchOutbox().listen((_) => sync());
-    _channel =
-        client.channel(
-            'gym:${repository.access.gymId}',
-            opts: const RealtimeChannelConfig(private: true),
-          )
-          ..onBroadcast(event: 'changed', callback: (_) => sync())
-          ..subscribe();
+    _outbox = repository.watchOutbox().listen((operations) {
+      if (operations.any((op) =>
+          op.state == 'pending' &&
+          !op.nextAttempt.isAfter(DateTime.now().toUtc()))) {
+        unawaited(sync());
+      }
+    });
+    _channel = client.channel(
+      'gym:${repository.access.gymId}',
+      opts: const RealtimeChannelConfig(private: true),
+    )
+      ..onBroadcast(event: 'changed', callback: (_) => sync())
+      ..subscribe();
     unawaited(sync());
   }
   final WorkspaceRepository repository;
@@ -47,14 +52,14 @@ class SyncEngine extends Cubit<SyncStatus> {
     emit(SyncStatus(running: true, lastSync: state.lastSync));
     final db = repository.db, scope = repository.scope;
     try {
-      final ops =
-          await (db.select(db.syncOperations)..where(
-                (o) =>
-                    o.scope.equals(scope) &
-                    o.state.equals('pending') &
-                    o.nextAttempt.isSmallerOrEqualValue(DateTime.now().toUtc()),
-              ))
-              .get();
+      final ops = await (db.select(db.syncOperations)
+            ..where(
+              (o) =>
+                  o.scope.equals(scope) &
+                  o.state.equals('pending') &
+                  o.nextAttempt.isSmallerOrEqualValue(DateTime.now().toUtc()),
+            ))
+          .get();
       for (final op in ops) {
         if (_stopping) break;
         try {
@@ -72,9 +77,7 @@ class SyncEngine extends Cubit<SyncStatus> {
             ) as Map,
           );
           await db.transaction(() async {
-            await db
-                .into(db.cachedRecords)
-                .insertOnConflictUpdate(
+            await db.into(db.cachedRecords).insertOnConflictUpdate(
                   CachedRecordsCompanion.insert(
                     scope: scope,
                     kind: op.kind,
@@ -86,7 +89,8 @@ class SyncEngine extends Cubit<SyncStatus> {
                 );
             await (db.delete(
               db.syncOperations,
-            )..where((o) => o.id.equals(op.id))).go();
+            )..where((o) => o.id.equals(op.id)))
+                .go();
           });
         } on PostgrestException catch (e) {
           final conflict = e.code == '40001';
@@ -99,10 +103,10 @@ class SyncEngine extends Cubit<SyncStatus> {
             conflict
                 ? 'conflict'
                 : denied
-                ? 'approval'
-                : op.attempts >= 7
-                ? 'failed'
-                : 'pending',
+                    ? 'approval'
+                    : op.attempts >= 7
+                        ? 'failed'
+                        : 'pending',
             e.message,
           );
         } catch (_) {
@@ -115,7 +119,8 @@ class SyncEngine extends Cubit<SyncStatus> {
       }
       var checkpoint = await (db.select(
         db.syncCheckpoints,
-      )..where((c) => c.scope.equals(scope))).getSingleOrNull();
+      )..where((c) => c.scope.equals(scope)))
+          .getSingleOrNull();
       while (!_stopping) {
         final result = Map<String, dynamic>.from(
           await client.rpc(
@@ -126,31 +131,30 @@ class SyncEngine extends Cubit<SyncStatus> {
             },
           ) as Map,
         );
-        final changes = (result['changes'] as List)
-            .cast<Map<String, dynamic>>();
+        final changes =
+            (result['changes'] as List).cast<Map<String, dynamic>>();
         await db.transaction(() async {
           for (final change in changes) {
             if (change['deleted'] == true) {
-              await (db.delete(db.cachedRecords)..where(
-                    (r) =>
-                        r.scope.equals(scope) &
-                        r.kind.equals(change['kind'] as String) &
-                        r.id.equals(change['record_id'] as String),
-                  ))
+              await (db.delete(db.cachedRecords)
+                    ..where(
+                      (r) =>
+                          r.scope.equals(scope) &
+                          r.kind.equals(change['kind'] as String) &
+                          r.id.equals(change['record_id'] as String),
+                    ))
                   .go();
               continue;
             }
-            final pending =
-                await (db.select(db.syncOperations)..where(
-                      (o) =>
-                          o.scope.equals(scope) &
-                          o.recordId.equals(change['record_id'] as String),
-                    ))
-                    .get();
+            final pending = await (db.select(db.syncOperations)
+                  ..where(
+                    (o) =>
+                        o.scope.equals(scope) &
+                        o.recordId.equals(change['record_id'] as String),
+                  ))
+                .get();
             if (pending.isNotEmpty) continue;
-            await db
-                .into(db.cachedRecords)
-                .insertOnConflictUpdate(
+            await db.into(db.cachedRecords).insertOnConflictUpdate(
                   CachedRecordsCompanion.insert(
                     scope: scope,
                     kind: change['kind'] as String,
@@ -163,9 +167,7 @@ class SyncEngine extends Cubit<SyncStatus> {
                   ),
                 );
           }
-          await db
-              .into(db.syncCheckpoints)
-              .insertOnConflictUpdate(
+          await db.into(db.syncCheckpoints).insertOnConflictUpdate(
                 SyncCheckpointsCompanion.insert(
                   scope: scope,
                   cursor: Value(result['cursor'] as int),
@@ -186,7 +188,8 @@ class SyncEngine extends Cubit<SyncStatus> {
       if (!_stopping) {
         emit(
           SyncStatus(
-            error: 'Server authorization or synchronization failed. Revalidating access when required.',
+            error:
+                'Server authorization or synchronization failed. Revalidating access when required.',
             lastSync: state.lastSync,
           ),
         );
@@ -195,7 +198,8 @@ class SyncEngine extends Cubit<SyncStatus> {
       if (!_stopping) {
         emit(
           SyncStatus(
-            error: 'Unable to sync. Cached records are available; retry when connected.',
+            error:
+                'Unable to sync. Cached records are available; retry when connected.',
             lastSync: state.lastSync,
           ),
         );
@@ -209,24 +213,26 @@ class SyncEngine extends Cubit<SyncStatus> {
     await repository.db.transaction(() async {
       await (repository.db.update(
         repository.db.syncOperations,
-      )..where((o) => o.id.equals(op.id))).write(
+      )..where((o) => o.id.equals(op.id)))
+          .write(
         SyncOperationsCompanion(
           attempts: Value(op.attempts + 1),
           state: Value(status),
           error: Value(message),
           nextAttempt: Value(
             DateTime.now().toUtc().add(
-              Duration(seconds: min(900, 2 << op.attempts)),
-            ),
+                  Duration(seconds: min(900, 2 << op.attempts)),
+                ),
           ),
         ),
       );
-      await (repository.db.update(repository.db.cachedRecords)..where(
-            (r) =>
-                r.scope.equals(repository.scope) &
-                r.id.equals(op.recordId) &
-                r.kind.equals(op.kind),
-          ))
+      await (repository.db.update(repository.db.cachedRecords)
+            ..where(
+              (r) =>
+                  r.scope.equals(repository.scope) &
+                  r.id.equals(op.recordId) &
+                  r.kind.equals(op.kind),
+            ))
           .write(CachedRecordsCompanion(syncState: Value(status)));
     });
   }

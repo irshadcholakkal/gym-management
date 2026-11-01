@@ -21,9 +21,9 @@ abstract interface class AuthRepository {
 
 class NoGymAccessException extends AuthException {
   const NoGymAccessException()
-    : super(
-        'Set up a new gym or ask your administrator for a workspace invitation.',
-      );
+      : super(
+          'Set up a new gym or ask your administrator for a workspace invitation.',
+        );
 }
 
 class SupabaseAuthRepository implements AuthRepository {
@@ -43,10 +43,26 @@ class SupabaseAuthRepository implements AuthRepository {
       client.auth.currentUser?.userMetadata?['requires_password_setup'] == true;
   @override
   Future<void> signIn(String email, String password) async {
-    await client.auth.signInWithPassword(
-      email: email.trim().toLowerCase(),
-      password: password,
-    );
+    final identifier = email.trim().toLowerCase();
+    if (identifier.contains('@')) {
+      await client.auth
+          .signInWithPassword(email: identifier, password: password);
+      return;
+    }
+    try {
+      final response = await client.functions.invoke('employee-login',
+          body: {'identifier': identifier, 'password': password});
+      final token =
+          response.data is Map ? response.data['refresh_token'] : null;
+      if (response.status != 200 || token is! String) {
+        throw const AuthException('Invalid employee ID, username or password.');
+      }
+      await client.auth.setSession(token);
+    } on FunctionException catch (error) {
+      throw AuthException(error.status == 429
+          ? 'Too many sign-in attempts. Try again in 15 minutes.'
+          : 'Invalid employee ID, username or password.');
+    }
   }
 
   @override
@@ -75,7 +91,7 @@ class SupabaseAuthRepository implements AuthRepository {
     final user = client.auth.currentUser!;
     final rows = await client
         .from('gym_users')
-        .select('gym_id, role, gyms(name)')
+        .select('gym_id, role, access_options, gyms(name)')
         .eq('user_id', user.id)
         .eq('active', true)
         .order('created_at')
@@ -97,12 +113,12 @@ class SupabaseAuthRepository implements AuthRepository {
     return GymAccess(
       gymId: row['gym_id'] as String,
       userId: user.id,
-      name:
-          user.userMetadata?['full_name'] as String? ??
+      name: user.userMetadata?['full_name'] as String? ??
           user.email ??
           'Team member',
       gymName: (row['gyms'] as Map)['name'] as String,
       role: GymRole.values.byName(row['role'] as String),
+      options: Map<String, bool>.from(row['access_options'] as Map? ?? {}),
     );
   }
 }

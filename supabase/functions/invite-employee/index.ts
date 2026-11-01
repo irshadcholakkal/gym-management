@@ -20,15 +20,27 @@ Deno.serve(async (req: Request) => {
       typeof input.email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) {
       return new Response('{"error":"Valid name, email and role required"}', { status: 400, headers });
     }
+    const username = typeof input.username === 'string' ? input.username.trim().toLowerCase() : '';
+    const options = typeof input.access_options === 'string' ? JSON.parse(input.access_options) : input.access_options ?? {};
+    if ((username && (!/^[a-z][a-z0-9_.-]{2,31}$/.test(username) || username.startsWith('emp-'))) ||
+        !options || Array.isArray(options) || typeof options !== 'object' || Object.entries(options).some(([key, value]) => !['edit_members', 'operations', 'discounts', 'administration'].includes(key) || typeof value !== 'boolean')) {
+      return new Response('{"error":"Invalid username or access options"}', { status: 400, headers });
+    }
     const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
+    if (username) {
+      const { data: used, error: checkError } = await admin.from('employees').select('id').eq('username', username).limit(1);
+      if (checkError) throw checkError;
+      if (used?.length) return new Response('{"error":"Username is already in use"}', { status: 409, headers });
+    }
     const { data, error } = await admin.auth.admin.inviteUserByEmail(input.email.trim().toLowerCase(), {
       data: { full_name: input.full_name.trim(), requires_password_setup: true }, redirectTo: `${origin}/#/recovery`,
     });
     if (error) throw error;
-    const { error: attachError } = await admin.rpc('attach_invited_employee', {
+    const { error: attachError } = await admin.rpc('attach_invited_employee_access', {
       p_gym: input.gym_id, p_actor: user.id, p_user: data.user.id,
       p_name: input.full_name.trim(), p_email: input.email.trim().toLowerCase(),
       p_role: input.role, p_phone: input.phone ?? '', p_designation: input.designation ?? '',
+      p_username: username, p_options: options,
     });
     if (attachError) {
       // Never delete an Auth identity as compensation: it may have other tenants.

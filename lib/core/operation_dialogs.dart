@@ -1,3 +1,5 @@
+import '../features/employees/employee_access.dart';
+import '../features/auth/domain/access.dart';
 import 'dart:convert';
 
 import 'package:drift/drift.dart' hide Column;
@@ -29,8 +31,8 @@ Future<void> showServerOperation(
       ? <String, dynamic>{}
       : jsonDecode(record.payload) as Map<String, dynamic>;
   final renewal = type == 'subscribe' && record?.kind == 'subscriptions';
-  final operation = const Uuid()
-      .v4(); // Retained across uncertain retries in this dialog.
+  final operation =
+      const Uuid().v4(); // Retained across uncertain retries in this dialog.
   final form = GlobalKey<FormState>();
   final date = TextEditingController(
     text: DateTime.now()
@@ -43,7 +45,9 @@ Future<void> showServerOperation(
       reason = TextEditingController(),
       email = TextEditingController(),
       name = TextEditingController(),
-      phone = TextEditingController();
+      phone = TextEditingController(),
+      username = TextEditingController();
+  final employeeOptions = <String, bool>{};
   final discount = TextEditingController(text: '0.00'),
       discountReason = TextEditingController();
   if (renewal) {
@@ -59,22 +63,22 @@ Future<void> showServerOperation(
       package = renewal ? values['package_id'] as String? : null,
       error;
   var busy = false, attempted = false;
-  final members =
-      await (repo.db.select(repo.db.cachedRecords)..where(
-            (r) =>
-                r.scope.equals(repo.scope) &
-                r.kind.equals('members') &
-                r.syncState.equals('synced'),
-          ))
-          .get();
-  final packages =
-      await (repo.db.select(repo.db.cachedRecords)..where(
-            (r) =>
-                r.scope.equals(repo.scope) &
-                r.kind.equals('membership_packages') &
-                r.syncState.equals('synced'),
-          ))
-          .get();
+  final members = await (repo.db.select(repo.db.cachedRecords)
+        ..where(
+          (r) =>
+              r.scope.equals(repo.scope) &
+              r.kind.equals('members') &
+              r.syncState.equals('synced'),
+        ))
+      .get();
+  final packages = await (repo.db.select(repo.db.cachedRecords)
+        ..where(
+          (r) =>
+              r.scope.equals(repo.scope) &
+              r.kind.equals('membership_packages') &
+              r.syncState.equals('synced'),
+        ))
+      .get();
   if (!context.mounted) return;
   if (!packages.any(
     (p) =>
@@ -97,11 +101,12 @@ Future<void> showServerOperation(
   }
 
   MembershipQuote quote() => MembershipQuote(
-    priceMinor: selectedPackage()['price_minor'] as int? ?? 0,
-    enrollmentFeeMinor: selectedPackage()['enrollment_fee_minor'] as int? ?? 0,
-    taxBasisPoints: selectedPackage()['tax_basis_points'] as int? ?? 0,
-    discountMinor: discountValue(),
-  );
+        priceMinor: selectedPackage()['price_minor'] as int? ?? 0,
+        enrollmentFeeMinor:
+            selectedPackage()['enrollment_fee_minor'] as int? ?? 0,
+        taxBasisPoints: selectedPackage()['tax_basis_points'] as int? ?? 0,
+        discountMinor: discountValue(),
+      );
   final route = DialogRoute<void>(
     context: context,
     barrierDismissible: false,
@@ -127,10 +132,10 @@ Future<void> showServerOperation(
                     type == 'subscribe'
                         ? 'Choose the membership package and review the amount due.'
                         : type == 'pay'
-                        ? 'Enter the amount actually received from the member.'
-                        : type == 'invite'
-                        ? 'Send a secure invitation to join your gym.'
-                        : 'Choose the membership action and effective date.',
+                            ? 'Enter the amount actually received from the member.'
+                            : type == 'invite'
+                                ? 'Send a secure invitation to join your gym.'
+                                : 'Choose the membership action and effective date.',
                   ),
                   const SizedBox(height: 16),
                   if (type == 'subscribe') ...[
@@ -170,9 +175,8 @@ Future<void> showServerOperation(
                             ),
                           ),
                       ],
-                      onChanged: attempted
-                          ? null
-                          : (v) => update(() => package = v),
+                      onChanged:
+                          attempted ? null : (v) => update(() => package = v),
                       validator: (v) =>
                           v == null ? 'Select an active synced package' : null,
                     ),
@@ -188,7 +192,8 @@ Future<void> showServerOperation(
                         decoration: InputDecoration(
                           labelText:
                               'Special discount (${selectedPackage()['currency'] ?? 'AED'})',
-                          helperText: 'Optional. Applied to the package price before tax.',
+                          helperText:
+                              'Optional. Applied to the package price before tax.',
                         ),
                         onChanged: (_) => update(() {}),
                         validator: (v) {
@@ -296,9 +301,8 @@ Future<void> showServerOperation(
                             child: Text(displayLabel(a)),
                           ),
                       ],
-                      onChanged: attempted
-                          ? null
-                          : (v) => update(() => action = v!),
+                      onChanged:
+                          attempted ? null : (v) => update(() => action = v!),
                     ),
                     const SizedBox(height: 14),
                     TextFormField(
@@ -388,8 +392,7 @@ Future<void> showServerOperation(
                     TextFormField(
                       controller: email,
                       decoration: const InputDecoration(labelText: 'Email'),
-                      validator: (v) =>
-                          RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+                      validator: (v) => RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
                               .hasMatch(v ?? '')
                           ? null
                           : 'Enter a valid email',
@@ -418,8 +421,59 @@ Future<void> showServerOperation(
                             child: Text(displayLabel(r)),
                           ),
                       ],
-                      onChanged: (v) => role = v!,
+                      onChanged: (v) => update(() {
+                        role = v!;
+                        employeeOptions.clear();
+                      }),
                     ),
+                  ],
+                  if (type == 'invite') ...[
+                    const SizedBox(height: 12),
+                    EmployeeRoleSummary(role: GymRole.values.byName(role)),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                        controller: username,
+                        autocorrect: false,
+                        decoration: const InputDecoration(
+                            labelText: 'Username (optional)'),
+                        validator: (value) {
+                          final text = (value ?? '').trim().toLowerCase();
+                          return text.isEmpty ||
+                                  RegExp(r'^[a-z][a-z0-9_.-]{2,31}$')
+                                          .hasMatch(text) &&
+                                      !text.startsWith('emp-')
+                              ? null
+                              : 'Use 3-32 characters, starting with a letter; no emp- prefix';
+                        }),
+                    for (final option in employeeOptionLabels.entries)
+                      Builder(builder: (context) {
+                        final base = GymAccess(
+                            gymId: '',
+                            userId: '',
+                            name: '',
+                            gymName: '',
+                            role: GymRole.values.byName(role));
+                        final available = switch (option.key) {
+                          'administration' => base.administer,
+                          'discounts' => base.canDiscount &&
+                              employeeOptions['operations'] != false,
+                          'edit_members' => base.finances &&
+                              employeeOptions['operations'] != false,
+                          _ => base.finances,
+                        };
+                        return CheckboxListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(option.value),
+                            value: available &&
+                                employeeOptions[option.key] != false,
+                            onChanged: busy || !available
+                                ? null
+                                : (value) => update(() =>
+                                    employeeOptions[option.key] = value!));
+                      }),
+                    const SizedBox(height: 8),
+                    const Text(
+                        'The employee will receive an email to set their password. They can then sign in with their username, employee ID or email.'),
                   ],
                   if (error != null)
                     Padding(
@@ -458,9 +512,8 @@ Future<void> showServerOperation(
                             package!,
                             date.text,
                             operation,
-                            discountMinor: repo.access.canDiscount
-                                ? discountValue()
-                                : 0,
+                            discountMinor:
+                                repo.access.canDiscount ? discountValue() : 0,
                             discountReason: repo.access.canDiscount
                                 ? discountReason.text.trim()
                                 : '',
@@ -473,9 +526,8 @@ Future<void> showServerOperation(
                             date.text,
                             reason.text.trim(),
                             operation,
-                            days: action == 'extend'
-                                ? int.parse(amount.text)
-                                : 0,
+                            days:
+                                action == 'extend' ? int.parse(amount.text) : 0,
                           );
                         case 'pay':
                           final result = await operations.pay(
@@ -494,6 +546,8 @@ Future<void> showServerOperation(
                             'email': email.text.trim().toLowerCase(),
                             'phone': phone.text.trim(),
                             'role': role,
+                            'username': username.text.trim().toLowerCase(),
+                            'access_options': jsonEncode(employeeOptions),
                           });
                       }
                       await sync.sync();
@@ -531,15 +585,15 @@ Future<void> showServerOperation(
               busy
                   ? (type == 'invite' ? 'Sending…' : 'Saving…')
                   : attempted
-                  ? 'Retry request'
-                  : {
-                      'subscribe': renewal
-                          ? 'Renew membership'
-                          : 'Create membership',
-                      'pay': 'Record payment',
-                      'invite': 'Send invitation',
-                      'transition': '${displayLabel(action)} membership',
-                    }[type]!,
+                      ? 'Retry request'
+                      : {
+                          'subscribe': renewal
+                              ? 'Renew membership'
+                              : 'Create membership',
+                          'pay': 'Record payment',
+                          'invite': 'Send invitation',
+                          'transition': '${displayLabel(action)} membership',
+                        }[type]!,
             ),
           ),
         ],
@@ -555,6 +609,7 @@ Future<void> showServerOperation(
     email,
     name,
     phone,
+    username,
     discount,
     discountReason,
   ]) {

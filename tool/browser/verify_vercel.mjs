@@ -19,7 +19,7 @@ try {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
-  await page.getByRole('textbox', { name: /Work email/ }).waitFor({ timeout: 60000 });
+  await page.getByRole('textbox', { name: /Email, employee ID or username/ }).waitFor({ timeout: 60000 });
   await page.getByRole('button', { name: 'Sign in', exact: true }).waitFor();
   await page.getByRole('button', { name: 'Create account', exact: true }).click();
   await page.getByRole('textbox', { name: 'Full name', exact: true }).waitFor();

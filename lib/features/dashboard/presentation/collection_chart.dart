@@ -14,6 +14,7 @@ class CollectionChart extends StatelessWidget {
   final DateTime today;
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 600;
     final months = [
       for (var i = 5; i >= 0; i--) DateTime.utc(today.year, today.month - i),
     ];
@@ -44,7 +45,7 @@ class CollectionChart extends StatelessWidget {
     ];
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(compact ? 16 : 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -53,10 +54,11 @@ class CollectionChart extends StatelessWidget {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
-            const Text('Confirmed payments, excluding reversals'),
+            Text('Confirmed payments, excluding reversals',
+                style: Theme.of(context).textTheme.bodySmall),
             const SizedBox(height: 24),
             SizedBox(
-              height: 180,
+              height: compact ? 145 : 180,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [

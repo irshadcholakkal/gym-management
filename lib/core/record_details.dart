@@ -24,6 +24,9 @@ class RecordDetails extends StatelessWidget {
     final m = jsonDecode(record.payload) as Map<String, dynamic>;
     final currency = m['currency'] as String? ?? 'AED';
     const labels = {
+      'employee_number': 'Employee number (sign in as EMP-number)',
+      'username': 'Username',
+      'access_role': 'Role',
       'full_name': 'Full name',
       'name': 'Name',
       'phone': 'Phone',

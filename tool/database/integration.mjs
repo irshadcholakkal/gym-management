@@ -244,5 +244,63 @@ await check('Member occupation persists, edits, clears, and survives older clien
   await login(b);
   await assert.rejects(()=>rpc('apply_sync_operation',[gymA,randomUUID(),'members',id,record.version,{...data,occupation:'Unauthorized'}]),e=>e.code==='42501');
 });
+
+const employeeUser=randomUUID(), otherEmployee=randomUUID();
+await db.exec('reset role');
+await db.query('insert into auth.users(id) values($1),($2)',[employeeUser,otherEmployee]);
+await db.query("insert into public.gym_users(gym_id,user_id,role) values($1,$2,'manager'),($1,$3,'trainer')",[gymA,employeeUser,otherEmployee]);
+await db.query("insert into public.employees(gym_id,user_id,full_name,email) values($1,$2,'Employee','employee@example.com'),($1,$3,'Other','other@example.com')",[gymA,employeeUser,otherEmployee]);
+await check('Only an administrator of the same gym can set employee roles and options',async()=>{
+  await login(b);await assert.rejects(()=>rpc('set_employee_access',[gymA,employeeUser,'admin','employee.test',{}]),e=>e.code==='42501');
+  await login(employeeUser);await assert.rejects(()=>rpc('set_employee_access',[gymA,employeeUser,'admin','employee.test',{}]),e=>e.code==='42501');
+  await login(a);await assert.rejects(()=>rpc('set_employee_access',[gymA,employeeUser,'owner','employee.test',{}]),e=>e.code==='42501');
+  await rpc('set_employee_access',[gymA,employeeUser,'manager','employee.test',{edit_members:false,discounts:false}]);
+  const row=(await db.query('select * from public.employees where user_id=$1',[employeeUser])).rows[0];
+  assert.equal(row.access_role,'manager');assert.equal(row.username,'employee.test');assert.equal(row.access_options.edit_members,false);
+});
+await check('Custom member-edit and discount restrictions are enforced by business RPCs',async()=>{
+  await login(employeeUser);
+  await assert.rejects(()=>rpc('apply_sync_operation',[gymA,randomUUID(),'members',randomUUID(),0,{full_name:'Blocked',phone:'+971501234568',joining_date:'2026-01-01',status:'active'}]),e=>e.code==='42501');
+  await assert.rejects(()=>rpc('create_subscription_discounted',[gymA,member,packageId,'2029-01-01',randomUUID(),100,'Blocked']),e=>e.code==='42501');
+  assert.equal((await db.query('select id from public.invoices')).rows.length>0,true);
+});
+await check('Disabling operations removes finance reads and delta payloads and blocks payment writes',async()=>{
+  await login(a);await rpc('set_employee_access',[gymA,employeeUser,'manager','employee.test',{operations:false}]);
+  await login(employeeUser);assert.equal((await db.query('select id from public.invoices')).rows.length,0);
+  const delta=await rpc('pull_changes',[gymA,0]);assert.equal(delta.changes.some(c=>['invoices','payments','receipts','membership_packages'].includes(c.kind)),false);
+  await assert.rejects(()=>rpc('post_payment',[gymA,randomUUID(),100,'cash','',randomUUID()]),e=>e.code==='42501');
+});
+await check('Usernames are unique, reserved employee IDs cannot be claimed, and aliases are private',async()=>{
+  await login(a);await assert.rejects(()=>rpc('set_employee_access',[gymA,otherEmployee,'trainer','employee.test',{}]),e=>e.code==='23505');
+  await assert.rejects(()=>rpc('set_employee_access',[gymA,otherEmployee,'trainer','emp-123',{}]));
+  await assert.rejects(()=>rpc('set_employee_access',[gymA,otherEmployee,'trainer','other.test',{operations:'yes'}]));
+  await assert.rejects(()=>rpc('resolve_employee_login',['employee.test']),e=>e.code==='42501');
+  await db.exec('reset role');await db.exec('set role anon');await assert.rejects(()=>rpc('resolve_employee_login',['employee.test']),e=>e.code==='42501');
+  await db.exec('reset role');const number=(await db.query('select employee_number from public.employees where user_id=$1',[employeeUser])).rows[0].employee_number;await db.exec('set role service_role');
+  assert.equal(await rpc('resolve_employee_login',['EMP-'+number]),employeeUser);
+  assert.equal(await rpc('resolve_employee_login',['EMPLOYEE.TEST']),employeeUser);
+  await db.exec('reset role');await db.query("update public.gym_users set active=false where user_id=$1",[employeeUser]);await db.exec('set role service_role');
+  assert.equal(await rpc('resolve_employee_login',['employee.test']),null);
+});
+await check('Alias login rate limiter rejects repeated attempts',async()=>{
+  await db.exec('reset role');await db.exec('set role service_role');
+  for(let i=0;i<10;i++)assert.equal(await rpc('allow_employee_login',['test-hash']),true);
+  assert.equal(await rpc('allow_employee_login',['test-hash']),false);
+});
+
+await check('Invitations attach role, username and restrictions atomically',async()=>{
+  await db.exec('reset role');const fresh=randomUUID();await db.query('insert into auth.users(id) values($1)',[fresh]);await db.exec('set role service_role');
+  await rpc('attach_invited_employee_access',[gymA,a,fresh,'Fresh','fresh@example.com','manager','','','fresh.employee',{edit_members:false,discounts:false}]);
+  await db.exec('reset role');const row=(await db.query('select * from public.employees where user_id=$1',[fresh])).rows[0];
+  assert.equal(row.access_role,'manager');assert.equal(row.username,'fresh.employee');assert.equal(row.access_options.discounts,false);
+  const failed=randomUUID();await db.query('insert into auth.users(id) values($1)',[failed]);await db.exec('set role service_role');
+  await assert.rejects(()=>rpc('attach_invited_employee_access',[gymA,a,failed,'Failed','failed@example.com','admin','','','fresh.employee',{}]),e=>e.code==='23505');
+  await db.exec('reset role');assert.equal((await db.query('select id from public.gym_users where user_id=$1',[failed])).rows.length,0);
+});
+await check('Disabling administration blocks team access even for the admin role',async()=>{
+  await login(a);await rpc('set_employee_access',[gymA,otherEmployee,'admin','other.admin',{administration:false}]);
+  await login(otherEmployee);assert.equal(await rpc('can_administer',[gymA]),false);
+  await assert.rejects(()=>rpc('set_employee_access',[gymA,otherEmployee,'admin','other.admin',{}]),e=>e.code==='42501');
+});
 console.log(`${passed} database integration checks passed. Hosted Auth, Realtime and Storage were stubbed.`);
 await db.close();

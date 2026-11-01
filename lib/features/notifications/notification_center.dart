@@ -15,9 +15,7 @@ bool currentNotification(Map data, String user) =>
     data['recipient_id'] == user && data['superseded_at'] == null;
 
 Stream<List<CachedRecord>> notificationRecords(WorkspaceRepository repo) =>
-    (repo.db.select(
-      repo.db.cachedRecords,
-    )..where((r) => r.scope.equals(repo.scope))).watch();
+    repo.records;
 
 class NotificationBell extends StatefulWidget {
   const NotificationBell({super.key});
@@ -32,7 +30,7 @@ class _NotificationBellState extends State<NotificationBell> {
   Widget build(BuildContext context) {
     final repo = context.read<WorkspaceRepository>();
     return StreamBuilder<List<CachedRecord>>(
-      stream: notificationRecords(repo),
+      stream: repo.watch('notifications'),
       builder: (context, snapshot) {
         final fresh = (snapshot.data ?? []).where((r) {
           if (r.kind != 'notifications') return false;
@@ -133,14 +131,15 @@ class _NotificationCenterState extends State<NotificationCenter> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Wrap(
-          spacing: 12,
-          runSpacing: 12,
+          spacing: 8,
+          runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            const Text(
-              'Notifications',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
+            if (MediaQuery.sizeOf(context).width >= 600)
+              const Text(
+                'Notifications',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
             for (final value in ['all', 'unread', 'warnings', 'reminders'])
               ChoiceChip(
                 label: Text(displayLabel(value)),
@@ -161,11 +160,12 @@ class _NotificationCenterState extends State<NotificationCenter> {
                         );
                         if (!context.mounted) return;
                         await context.read<OperationsRepository>().registerPush(
-                          jsonDecode(result) as Map<String, dynamic>,
-                        );
+                              jsonDecode(result) as Map<String, dynamic>,
+                            );
                         if (mounted) {
                           setState(
-                            () => pushMessage = 'Push enabled on this device. Reminders will also appear here.',
+                            () => pushMessage =
+                                'Push enabled on this device. Reminders will also appear here.',
                           );
                         }
                       } catch (error) {
@@ -181,7 +181,7 @@ class _NotificationCenterState extends State<NotificationCenter> {
                     },
               icon: const Icon(Icons.notifications_active_outlined),
               label: Text(
-                enabling ? 'Enabling…' : 'Enable push on this device',
+                enabling ? 'Enabling...' : 'Enable push',
               ),
             ),
             IconButton(
@@ -228,33 +228,31 @@ class _NotificationCenterState extends State<NotificationCenter> {
                 return const Center(child: CircularProgressIndicator());
               }
               final labels = RecordLabels(snapshot.data!);
-              final records =
-                  snapshot.data!.where((r) {
-                    if (r.kind != 'notifications' || wrongGym) return false;
-                    final m = jsonDecode(r.payload) as Map;
-                    if (!currentNotification(m, repo.access.userId)) {
-                      return false;
-                    }
-                    if (focused != null && r.id != focused) return false;
-                    final warning = [
-                      'expired',
-                      'expiry_0',
-                      'payment_overdue',
-                    ].contains(m['type']);
-                    return filter == 'all' ||
-                        filter == 'unread' && m['read_at'] == null ||
-                        filter == 'warnings' && warning ||
-                        filter == 'reminders' && !warning;
-                  }).toList()..sort(
-                    (a, b) =>
-                        ((jsonDecode(b.payload) as Map)['created_at'] ?? '')
-                            .toString()
-                            .compareTo(
-                              ((jsonDecode(a.payload) as Map)['created_at'] ??
-                                      '')
-                                  .toString(),
-                            ),
-                  );
+              final records = snapshot.data!.where((r) {
+                if (r.kind != 'notifications' || wrongGym) return false;
+                final m = jsonDecode(r.payload) as Map;
+                if (!currentNotification(m, repo.access.userId)) {
+                  return false;
+                }
+                if (focused != null && r.id != focused) return false;
+                final warning = [
+                  'expired',
+                  'expiry_0',
+                  'payment_overdue',
+                ].contains(m['type']);
+                return filter == 'all' ||
+                    filter == 'unread' && m['read_at'] == null ||
+                    filter == 'warnings' && warning ||
+                    filter == 'reminders' && !warning;
+              }).toList()
+                ..sort(
+                  (a, b) => ((jsonDecode(b.payload) as Map)['created_at'] ?? '')
+                      .toString()
+                      .compareTo(
+                        ((jsonDecode(a.payload) as Map)['created_at'] ?? '')
+                            .toString(),
+                      ),
+                );
               if (records.isEmpty) {
                 return Center(
                   child: Text(
@@ -323,8 +321,8 @@ class _NotificationCenterState extends State<NotificationCenter> {
                                       Uri(
                                         path: '/subscriptions',
                                         queryParameters: {
-                                          'record': m['subscription_id']
-                                              .toString(),
+                                          'record':
+                                              m['subscription_id'].toString(),
                                         },
                                       ).toString(),
                                     );

@@ -21,3 +21,6 @@ verify_jwt = true
 
 [functions.process-reminders]
 verify_jwt = false
+
+[functions.employee-login]
+verify_jwt = false

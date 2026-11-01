@@ -143,7 +143,7 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
         ShellRoute(
           builder: (_, state, child) => Workspace(
             key: ValueKey(
-              '${_session!.state.access!.gymId}:${_session!.state.access!.userId}:${_session!.state.access!.role.name}',
+              '${_session!.state.access!.gymId}:${_session!.state.access!.userId}:${_session!.state.access!.role.name}:${_session!.state.access!.permissionKey}',
             ),
             access: _session!.state.access!,
             client: widget.client!,
@@ -200,11 +200,15 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) => MaterialApp.router(
-    title: 'GymPro UAE',
-    debugShowCheckedModeBanner: false,
-    theme: GymTheme.light,
-    routerConfig: _router,
-  );
+        title: 'GymPro UAE',
+        debugShowCheckedModeBanner: false,
+        theme: GymTheme.light,
+        builder: (context, child) => MediaQuery.sizeOf(context).width < 600
+            ? Theme(
+                data: GymTheme.mobile, child: child ?? const SizedBox.shrink())
+            : child ?? const SizedBox.shrink(),
+        routerConfig: _router,
+      );
 }
 
 class RouterRefresh extends ChangeNotifier {
@@ -215,49 +219,49 @@ class SetupPage extends StatelessWidget {
   const SetupPage({super.key});
   @override
   Widget build(BuildContext context) => Scaffold(
-    body: Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 580),
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(
-                    Icons.fitness_center_rounded,
-                    color: GymTheme.sage,
-                    size: 44,
+        body: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 580),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.fitness_center_rounded,
+                        color: GymTheme.sage,
+                        size: 44,
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        'Welcome to GymPro UAE',
+                        style: Theme.of(context).textTheme.headlineLarge,
+                      ),
+                      const SizedBox(height: 12),
+                      const Text('Connect your gym’s secure workspace'),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Apply the Supabase migrations, provision your owner account, then run the app with your project URL and public anonymous key.',
+                      ),
+                      const SizedBox(height: 20),
+                      const SelectableText(
+                        'flutter run -d chrome\n  --dart-define=SUPABASE_URL=https://YOUR_PROJECT.supabase.co\n  --dart-define=SUPABASE_ANON_KEY=YOUR_PUBLIC_KEY',
+                        style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'See README.md for setup and verification status. Real gym data appears after authentication; no sample financial records are created.',
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Welcome to GymPro UAE',
-                    style: Theme.of(context).textTheme.headlineLarge,
-                  ),
-                  const SizedBox(height: 12),
-                  const Text('Connect your gym’s secure workspace'),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Apply the Supabase migrations, provision your owner account, then run the app with your project URL and public anonymous key.',
-                  ),
-                  const SizedBox(height: 20),
-                  const SelectableText(
-                    'flutter run -d chrome\n  --dart-define=SUPABASE_URL=https://YOUR_PROJECT.supabase.co\n  --dart-define=SUPABASE_ANON_KEY=YOUR_PUBLIC_KEY',
-                    style: TextStyle(fontFamily: 'monospace', fontSize: 12),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'See README.md for setup and verification status. Real gym data appears after authentication; no sample financial records are created.',
-                  ),
-                ],
+                ),
               ),
             ),
           ),
         ),
-      ),
-    ),
-  );
+      );
 }
