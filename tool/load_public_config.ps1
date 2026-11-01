@@ -23,6 +23,10 @@ if (!$publicKey.StartsWith('sb_publishable_')) {
     if ($claims.role -ne 'anon') { throw 'Not an anonymous key' }
   } catch { throw 'Use a Supabase publishable key or legacy anonymous key, never a server key.' }
 }
+if ($values['VAPID_PUBLIC_KEY']) {
+  $values['VAPID_PUBLIC_KEY'] | node (Join-Path $PSScriptRoot 'validate_vapid.mjs')
+  if ($LASTEXITCODE -ne 0) { throw 'Invalid VAPID_PUBLIC_KEY. Public configuration was not generated.' }
+}
 # Explicit allow-list: the original .env must never become a Flutter asset or
 # --dart-define-from-file input, because it can also contain server secrets.
 $config = [ordered]@{

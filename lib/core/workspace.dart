@@ -252,9 +252,9 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                     children: [
                       Container(
                         color: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 14,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: wide ? 20 : 8,
+                          vertical: wide ? 14 : 4,
                         ),
                         child: SafeArea(
                           bottom: false,
@@ -279,15 +279,17 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  widget.access.gymName,
+                                  wide ? widget.access.gymName : title,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
+                              WorkspaceSyncAction(
+                                  repository: repository, sync: sync),
                               const NotificationBell(),
-                              const SizedBox(width: 12),
+                              SizedBox(width: wide ? 12 : 4),
                               CircleAvatar(
                                 backgroundColor: const Color(0xFFEBF2FF),
                                 child: Text(
@@ -323,79 +325,44 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                           ),
                         ),
                       ),
-                      BlocBuilder<SyncEngine, SyncStatus>(
-                        builder: (context, status) =>
-                            StreamBuilder<List<SyncOperation>>(
-                          stream: repository.watchOutbox(),
-                          builder: (context, snapshot) {
-                            final pending = snapshot.data?.length ?? 0;
-                            return Container(
-                              width: double.infinity,
-                              color: status.error == null
-                                  ? const Color(0xFFF3F6FC)
-                                  : const Color(0xFFFFF1E8),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 8,
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    status.error != null
-                                        ? Icons.cloud_off_outlined
-                                        : Icons.cloud_done_outlined,
-                                    size: 16,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      status.error ??
-                                          (status.running
-                                              ? 'Synchronizing workspace…'
-                                              : pending > 0
-                                                  ? '$pending changes on this device awaiting confirmation'
-                                                  : 'Workspace synchronized'),
-                                      style: const TextStyle(fontSize: 12),
-                                    ),
-                                  ),
-                                  TextButton(
-                                    onPressed:
-                                        status.running ? null : sync.sync,
-                                    child: const Text('Sync now'),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ),
                       Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.all(wide ? 32 : 16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                title == 'Overview'
-                                    ? 'Your gym, at a glance'
-                                    : title,
-                                style:
-                                    Theme.of(context).textTheme.headlineLarge,
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                title == 'Overview'
-                                    ? 'A clear view of your community and daily operations.'
-                                    : 'Manage your ${title.toLowerCase()} in one place.',
-                                style: const TextStyle(
-                                  color: Color(0xFF8590A3),
+                        child: wide
+                            ? Padding(
+                                padding: EdgeInsets.all(wide ? 32 : 16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      title == 'Overview'
+                                          ? 'Your gym, at a glance'
+                                          : title,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .headlineLarge,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      title == 'Overview'
+                                          ? 'A clear view of your community and daily operations.'
+                                          : 'Manage your ${title.toLowerCase()} in one place.',
+                                      style: const TextStyle(
+                                        color: Color(0xFF8590A3),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    Expanded(child: widget.child),
+                                  ],
+                                ),
+                              )
+                            : SafeArea(
+                                top: false,
+                                bottom: false,
+                                child: Padding(
+                                  padding:
+                                      const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                                  child: widget.child,
                                 ),
                               ),
-                              const SizedBox(height: 24),
-                              Expanded(child: widget.child),
-                            ],
-                          ),
-                        ),
                       ),
                     ],
                   ),
@@ -432,6 +399,63 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
       ),
     );
   }
+}
+
+/// Keeps synchronization available without taking a row from the content viewport.
+class WorkspaceSyncAction extends StatelessWidget {
+  const WorkspaceSyncAction(
+      {super.key, required this.repository, required this.sync});
+  final WorkspaceRepository repository;
+  final SyncEngine sync;
+
+  @override
+  Widget build(BuildContext context) => BlocBuilder<SyncEngine, SyncStatus>(
+        bloc: sync,
+        builder: (context, status) => StreamBuilder<List<SyncOperation>>(
+          stream: repository.watchOutbox(),
+          builder: (context, snapshot) {
+            final pending = snapshot.data?.length ?? 0;
+            final message = status.error ??
+                (status.running
+                    ? 'Synchronizing workspace?'
+                    : pending > 0
+                        ? '$pending changes awaiting confirmation'
+                        : 'Workspace synchronized');
+            return PopupMenuButton<String>(
+              tooltip: 'Sync workspace',
+              onSelected: (value) {
+                if (value == 'sync') unawaited(sync.sync());
+                if (value == 'center') context.go('/sync');
+              },
+              icon: Badge(
+                isLabelVisible: pending > 0 || status.error != null,
+                label: Text(status.error != null ? '!' : '$pending'),
+                child: status.running
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : Icon(
+                        status.error != null
+                            ? Icons.cloud_off_outlined
+                            : Icons.cloud_done_outlined,
+                        color: status.error != null
+                            ? Theme.of(context).colorScheme.error
+                            : GymTheme.blue),
+              ),
+              itemBuilder: (_) => [
+                PopupMenuItem<String>(enabled: false, child: Text(message)),
+                PopupMenuItem<String>(
+                    value: 'sync',
+                    enabled: !status.running,
+                    child: const Text('Sync now')),
+                const PopupMenuItem<String>(
+                    value: 'center', child: Text('Open sync center')),
+              ],
+            );
+          },
+        ),
+      );
 }
 
 class WorkspaceContent extends StatelessWidget {

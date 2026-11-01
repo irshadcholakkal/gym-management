@@ -94,3 +94,9 @@ Local caches/outboxes are isolated by gym, authenticated user, and role. Offline
 
 Official reference APIs consulted: [Supabase Flutter](https://supabase.com/docs/reference/dart/introduction), [Drift Web](https://drift.simonbinder.eu/platforms/web/), [GoRouter](https://pub.dev/packages/go_router), [Flutter BLoC](https://pub.dev/packages/flutter_bloc), [Freezed](https://pub.dev/packages/freezed), [Realtime authorization](https://supabase.com/docs/guides/realtime/authorization), [printing](https://pub.dev/packages/printing), and [PGlite extensions](https://pglite.dev/extensions/).
 # gym-management
+
+### Push configuration troubleshooting
+
+If enabling push reports an invalid application server key, set `VAPID_PUBLIC_KEY` to the base64url P-256 **public** key matching the private key in Supabase Edge secrets. The decoded public key must be 65 bytes and start with `0x04`; placeholders and private keys are rejected by the build scripts. Local `.env` changes do not update a deployed app: set the same public key in Vercel environment variables and redeploy. For local use, run `tool/run_web.ps1` to regenerate public configuration, or build with `flutter build web --dart-define-from-file=config.local.json` after running `tool/load_public_config.ps1`. Accept the app update/reload after deployment. Existing subscriptions using an older key are replaced when push is enabled again. In-app reminders continue working without push.
+
+Run push configuration and subscription regression checks with `node --test tool/push_test.mjs`.

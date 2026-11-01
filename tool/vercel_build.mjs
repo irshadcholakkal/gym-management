@@ -1,3 +1,4 @@
+import { validateVapidPublicKey } from './validate_vapid.mjs';
 import { spawn } from 'node:child_process';
 import { access, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -28,7 +29,8 @@ export function publicConfig(env) {
   const config = { SUPABASE_URL: url, SUPABASE_PUBLISHABLE_KEY: key };
   const origin = env.VERCEL_PROJECT_PRODUCTION_URL || env.VERCEL_URL;
   if (env.AUTH_REDIRECT_URL || origin) config.AUTH_REDIRECT_URL = env.AUTH_REDIRECT_URL || `https://${origin}/#/recovery`;
-  if (env.VAPID_PUBLIC_KEY) config.VAPID_PUBLIC_KEY = env.VAPID_PUBLIC_KEY;
+  const vapidKey = validateVapidPublicKey(env.VAPID_PUBLIC_KEY);
+  if (vapidKey) config.VAPID_PUBLIC_KEY = vapidKey;
   return config;
 }
 

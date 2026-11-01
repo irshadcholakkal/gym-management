@@ -3,6 +3,8 @@ param([Parameter(Mandatory=$true)][string]$SupabaseUrl,
       [Parameter(Mandatory=$true)][string]$AuthRedirectUrl,
       [string]$VapidPublicKey = '')
 $ErrorActionPreference = 'Stop'
+$VapidPublicKey | node (Join-Path $PSScriptRoot 'validate_vapid.mjs')
+if ($LASTEXITCODE -ne 0) { throw 'Invalid VAPID_PUBLIC_KEY. Build stopped.' }
 flutter build web --pwa-strategy=none --no-web-resources-cdn "--dart-define=SUPABASE_URL=$SupabaseUrl" "--dart-define=SUPABASE_ANON_KEY=$SupabaseAnonKey" "--dart-define=AUTH_REDIRECT_URL=$AuthRedirectUrl" "--dart-define=VAPID_PUBLIC_KEY=$VapidPublicKey"
 if ($LASTEXITCODE -ne 0) { throw 'Flutter web build failed' }
 node (Join-Path $PSScriptRoot 'prepare_web.mjs')
