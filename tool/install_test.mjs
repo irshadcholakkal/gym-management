@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 function app(nav = {}, standalone = false) {
   const events = {};
   const window = { addEventListener: (name, handler) => events[name] = handler, matchMedia: () => ({ matches: standalone }) };
-  vm.runInNewContext(readFileSync(new URL('../web/pwa.js', import.meta.url), 'utf8'), { window, navigator: nav });
+  vm.runInNewContext(readFileSync(new URL('../web/pwa.js', import.meta.url), 'utf8'), { window, navigator: nav, setTimeout, clearTimeout });
   return { window, events };
 }
 test('install prompt is captured and used once; dismissal allows manual guidance', async () => {
@@ -29,4 +29,22 @@ test('manual installation guidance matches iPhone, desktop-mode iPad, Android an
   for (const [nav, expected] of [[{ userAgent: 'iPhone' }, 'ios'], [{ platform: 'MacIntel', maxTouchPoints: 5 }, 'ios'], [{ userAgent: 'Android' }, 'android'], [{ platform: 'MacIntel' }, 'mac']]) {
     assert.equal(await app(nav).window.gymproInstallApp(), expected);
   }
+});
+
+test('Checking an update never activates it until the user chooses install', async () => {
+  let activated = 0;
+  const registration = { waiting: null, installing: null, update: async () => {} };
+  const { window } = app({ serviceWorker: { getRegistration: async () => registration } });
+  assert.equal(await window.gymproAppUpdate(false), 'current');
+  registration.waiting = { postMessage: message => { assert.equal(message.type, 'ACTIVATE_UPDATE'); activated++; } };
+  assert.equal(await window.gymproAppUpdate(false), 'ready');
+  assert.equal(activated, 0);
+  assert.equal(await window.gymproAppUpdate(true), 'applying');
+  assert.equal(activated, 1);
+});
+test('Update check handles missing support and surfaces connectivity failures', async () => {
+  assert.equal(await app().window.gymproAppUpdate(false), 'unsupported');
+  assert.equal(await app({ serviceWorker: { getRegistration: async () => undefined } }).window.gymproAppUpdate(false), 'unavailable');
+  const { window } = app({ serviceWorker: { getRegistration: async () => ({ update: async () => { throw new Error('offline'); } }) } });
+  await assert.rejects(window.gymproAppUpdate(false), /offline/);
 });

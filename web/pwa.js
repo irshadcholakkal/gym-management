@@ -22,6 +22,27 @@
     if (/Mac/.test(navigator.platform || '')) return 'mac';
     return 'manual';
   };
+  window.gymproAppUpdate = async apply => {
+    if (!('serviceWorker' in navigator)) return 'unsupported';
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (!registration) return 'unavailable';
+    if (apply && registration.waiting) {
+      registration.waiting.postMessage({ type: 'ACTIVATE_UPDATE' });
+      return 'applying';
+    }
+    await registration.update();
+    if (registration.installing) {
+      await new Promise(resolve => {
+        const worker = registration.installing;
+        const finish = () => { worker.removeEventListener('statechange', changed); clearTimeout(timer); resolve(); };
+        const changed = () => { if (['installed', 'redundant'].includes(worker.state)) finish(); };
+        const timer = setTimeout(finish, 15000);
+        worker.addEventListener('statechange', changed);
+        changed();
+      });
+    }
+    return registration.waiting ? 'ready' : registration.installing ? 'checking' : 'current';
+  };
   window.gymproPushSubscribe = async key => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) throw new Error('This browser does not support web push. In-app reminders remain available.');
     if (!window.isSecureContext) throw new Error('Push requires HTTPS.');

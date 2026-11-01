@@ -9,7 +9,8 @@ class InstallAppCard extends StatefulWidget {
 }
 
 class _InstallAppCardState extends State<InstallAppCard> {
-  bool busy = false;
+  bool busy = false, checking = false, updateReady = false;
+  String? updateMessage;
   late String state = appInstallState();
 
   Future<void> install() async {
@@ -56,6 +57,35 @@ class _InstallAppCardState extends State<InstallAppCard> {
     }
   }
 
+  Future<void> updateApp() async {
+    setState(() {
+      checking = true;
+      updateMessage = null;
+    });
+    try {
+      final result = await checkAppUpdate(apply: updateReady);
+      if (!mounted) return;
+      setState(() {
+        updateReady = result == 'ready';
+        updateMessage = switch (result) {
+          'ready' =>
+            'An update is ready. Save any open work before installing it.',
+          'applying' => 'Installing update. GymPro will reload shortly.',
+          'current' => 'GymPro is up to date.',
+          'checking' => 'The update is still downloading. Check again shortly.',
+          _ =>
+            'Updates are unavailable here. Open GymPro in your browser and try again.',
+        };
+      });
+    } catch (_) {
+      if (mounted)
+        setState(() => updateMessage =
+            'Could not check for updates. Reconnect and try again.');
+    } finally {
+      if (mounted) setState(() => checking = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final installed = state == 'installed' || state == 'native';
@@ -68,12 +98,21 @@ class _InstallAppCardState extends State<InstallAppCard> {
           children: [
             const Icon(Icons.install_mobile_rounded, size: 22),
             const SizedBox(height: 12),
-            Text('GymPro on your device',
+            Text('App & updates',
                 style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             Text(installed
-                ? 'You’re already using GymPro as an app.'
-                : 'Install GymPro as a standalone app that opens in its own window.'),
+                ? 'GymPro is installed on this device.'
+                : 'Install GymPro as a Progressive Web App (PWA) through your browser.'),
+            const SizedBox(height: 10),
+            const Text(
+                '? Adds an app icon to your home screen, desktop or apps list.\n'
+                '? Opens in its own app window.\n'
+                '? Supports cached data and some offline work. Saved changes sync when connected.\n'
+                '? Receives updates through App & updates.'),
+            const SizedBox(height: 8),
+            const Text(
+                'Browser installation does not require you to download an APK or EXE file.'),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: installed || busy ? null : install,
@@ -84,8 +123,24 @@ class _InstallAppCardState extends State<InstallAppCard> {
                   ? 'Already installed'
                   : busy
                       ? 'Opening installer…'
-                      : 'Install GymPro app'),
+                      : 'Install app'),
             ),
+            if (state != 'native') ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: checking ? null : updateApp,
+                icon: const Icon(Icons.system_update_alt),
+                label: Text(checking
+                    ? 'Checking...'
+                    : updateReady
+                        ? 'Install update & reload'
+                        : 'Check for updates'),
+              ),
+              if (updateMessage != null)
+                Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(updateMessage!)),
+            ],
           ],
         ),
       ),

@@ -6,3 +6,8 @@ external JSString _state();
 external JSPromise<JSString> _install();
 String appInstallState() => _state().toDart;
 Future<String> installApp() async => (await _install().toDart).toDart;
+
+@JS('gymproAppUpdate')
+external JSPromise<JSString> _update(JSBoolean apply);
+Future<String> checkAppUpdate({bool apply = false}) async =>
+    (await _update(apply.toJS).toDart).toDart;
