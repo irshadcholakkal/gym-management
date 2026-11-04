@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Warm, welcoming surfaces and a consistent rose accent in both appearances.
+/// Soft surfaces with Emirates red accents in both appearances.
 abstract final class GymTheme {
   static const ink = Color(0xFF222222);
-  static const rose = Color(0xFFE31C5F);
   static const emiratesRed = Color(0xFFD71920);
-  static const blue = rose;
+  static const blue = emiratesRed;
   static const sage = blue;
   static const lime = Color(0xFFB6FF24);
   static const muted = Color(0xFF78818C);
   static const border = Color(0xFFEBEBEB);
   static const canvas = Color(0xFFFAFAFA);
-  static const softBlue = Color(0xFFFFF0F3);
+  static const softBlue = Color(0xFFFFEEEE);
   static final light = _build(Brightness.light);
   static final dark = _build(Brightness.dark);
   static final mobile = compact(light);
@@ -36,15 +35,15 @@ abstract final class GymTheme {
     final text = dark ? const Color(0xFFF7F5F6) : ink;
     final secondary = dark ? const Color(0xFFB8B2B6) : const Color(0xFF717171);
     final line = dark ? const Color(0xFF3D383C) : border;
-    final primary = dark ? const Color(0xFFFF8DAA) : rose;
-    final accent = dark ? const Color(0xFFFF8DAA) : rose;
-    final onAccent = dark ? ink : Colors.white;
-    final subtle = dark ? const Color(0xFF3C2931) : softBlue;
+    final primary = dark ? const Color(0xFFFF9094) : emiratesRed;
+    const accent = emiratesRed;
+    const onAccent = Colors.white;
+    final subtle = dark ? const Color(0xFF3C2628) : softBlue;
     final scheme =
         ColorScheme.fromSeed(seedColor: accent, brightness: brightness)
             .copyWith(
       primary: primary,
-      onPrimary: onAccent,
+      onPrimary: dark ? ink : Colors.white,
       primaryContainer: accent,
       onPrimaryContainer: onAccent,
       secondary: primary,

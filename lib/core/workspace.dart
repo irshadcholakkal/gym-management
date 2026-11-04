@@ -199,32 +199,6 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                 ],
               ),
             ),
-            if (!collapsed)
-              Container(
-                margin: EdgeInsets.all(16),
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.spa_outlined,
-                        color: Theme.of(context).colorScheme.primary),
-                    SizedBox(height: 8),
-                    Text(
-                      'A little stronger, every day.',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    SizedBox(height: 6),
-                    Text(
-                      'More time for your community.',
-                      style: TextStyle(fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
             ListTile(
               leading: Icon(Icons.logout),
               title: collapsed ? null : Text('Sign out'),
