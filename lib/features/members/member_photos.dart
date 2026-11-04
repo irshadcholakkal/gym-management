@@ -253,7 +253,7 @@ class _MemberPhotoEditorState extends State<MemberPhotoEditor> {
                     ),
                   ),
                   Text(
-                    'Automatically compressed · up to 512px · maximum 150 KB',
+                    'A familiar face makes every check-in more personal.',
                     style: TextStyle(fontSize: 12),
                   ),
                   if (message != null) Text(message!),

@@ -1392,26 +1392,12 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                     ),
                               onTap: () => showDialog<void>(
                                 context: context,
-                                builder: (context) => AlertDialog(
-                                  titlePadding:
-                                      const EdgeInsets.fromLTRB(24, 24, 24, 16),
-                                  contentPadding:
-                                      const EdgeInsets.fromLTRB(24, 0, 24, 20),
-                                  actionsPadding:
-                                      const EdgeInsets.fromLTRB(24, 0, 24, 20),
-                                  actionsOverflowButtonSpacing: 8,
-                                  title: Text(labels.title(kind, m)),
-                                  content: RecordDetails(
-                                    photos: widget.photos,
-                                    record: r,
-                                    repository: repo,
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context),
-                                      child: Text('Close'),
-                                    ),
-                                  ],
+                                builder: (_) => RecordDetailsPanel(
+                                  photos: widget.photos,
+                                  record: r,
+                                  repository: repo,
+                                  actions:
+                                      actions.whereType<IconButton>().toList(),
                                 ),
                               ),
                             );

@@ -214,10 +214,16 @@ abstract final class GymTheme {
           backgroundColor: subtle,
           selectedColor: accent,
           side: BorderSide.none,
-          labelStyle: WidgetStateTextStyle.resolveWith((states) => TextStyle(
-              color: states.contains(WidgetState.selected) ? onAccent : primary,
+          labelStyle: TextStyle(
+              fontFamily: 'Manrope',
+              color: primary,
               fontSize: 11,
-              fontWeight: FontWeight.w600)),
+              fontWeight: FontWeight.w600),
+          secondaryLabelStyle: TextStyle(
+              fontFamily: 'Manrope',
+              color: onAccent,
+              fontSize: 11,
+              fontWeight: FontWeight.w600),
           shape: const StadiumBorder()),
       navigationBarTheme: NavigationBarThemeData(
           backgroundColor: surface,
