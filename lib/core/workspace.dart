@@ -168,8 +168,10 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                       ),
                       child: ListTile(
                         selected: widget.path == d.$1,
-                        selectedTileColor: GymTheme.lime,
-                        selectedColor: GymTheme.ink,
+                        selectedTileColor:
+                            Theme.of(context).colorScheme.primaryContainer,
+                        selectedColor:
+                            Theme.of(context).colorScheme.onPrimaryContainer,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),

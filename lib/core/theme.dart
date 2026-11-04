@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Reference-inspired graphite surfaces, electric lime and rounded geometry.
+/// Emirates-inspired red and white by day; graphite and lime by night.
 abstract final class GymTheme {
   static const ink = Color(0xFF171C22);
-  static const blue = Color(0xFF527900);
+  static const emiratesRed = Color(0xFFD71920);
+  static const blue = emiratesRed;
   static const sage = blue;
   static const lime = Color(0xFFB6FF24);
   static const muted = Color(0xFF78818C);
-  static const border = Color(0xFFE0E4DC);
-  static const canvas = Color(0xFFF1F3ED);
-  static const softBlue = Color(0xFFE7F2D4);
+  static const border = Color(0xFFECE5E5);
+  static const canvas = Color(0xFFFAF8F8);
+  static const softBlue = Color(0xFFFFECEC);
   static final light = _build(Brightness.light);
   static final dark = _build(Brightness.dark);
   static final mobile = compact(light);
@@ -32,16 +33,19 @@ abstract final class GymTheme {
     final surface = dark ? const Color(0xFF20262F) : Colors.white;
     final background = dark ? const Color(0xFF131920) : canvas;
     final text = dark ? const Color(0xFFF3F5EF) : ink;
-    final secondary = dark ? const Color(0xFFA6AFBA) : const Color(0xFF667060);
+    final secondary = dark ? const Color(0xFFA6AFBA) : const Color(0xFF70666A);
     final line = dark ? const Color(0xFF363E47) : border;
-    final primary = dark ? lime : blue;
+    final primary = dark ? lime : emiratesRed;
+    final accent = dark ? lime : emiratesRed;
+    final onAccent = dark ? ink : Colors.white;
     final subtle = dark ? const Color(0xFF303C25) : softBlue;
     final scheme =
-        ColorScheme.fromSeed(seedColor: lime, brightness: brightness).copyWith(
+        ColorScheme.fromSeed(seedColor: accent, brightness: brightness)
+            .copyWith(
       primary: primary,
       onPrimary: dark ? ink : Colors.white,
-      primaryContainer: lime,
-      onPrimaryContainer: ink,
+      primaryContainer: accent,
+      onPrimaryContainer: onAccent,
       secondary: primary,
       secondaryContainer: subtle,
       onSecondaryContainer: text,
@@ -49,7 +53,7 @@ abstract final class GymTheme {
       onSurface: text,
       onSurfaceVariant: secondary,
       surfaceContainerHighest:
-          dark ? const Color(0xFF2A323C) : const Color(0xFFF0F3EB),
+          dark ? const Color(0xFF2A323C) : const Color(0xFFF6F2F2),
       outline: secondary,
       outlineVariant: line,
     );
@@ -113,8 +117,8 @@ abstract final class GymTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
-              backgroundColor: lime,
-              foregroundColor: ink,
+              backgroundColor: accent,
+              foregroundColor: onAccent,
               minimumSize: const Size(44, 46),
               elevation: 0,
               textStyle: const TextStyle(
@@ -143,24 +147,26 @@ abstract final class GymTheme {
               borderRadius: BorderRadius.vertical(top: Radius.circular(28)))),
       chipTheme: ChipThemeData(
           backgroundColor: subtle,
-          selectedColor: lime,
+          selectedColor: accent,
           side: BorderSide.none,
-          labelStyle: TextStyle(
-              color: primary, fontSize: 11, fontWeight: FontWeight.w600),
+          labelStyle: WidgetStateTextStyle.resolveWith((states) => TextStyle(
+              color: states.contains(WidgetState.selected) ? onAccent : primary,
+              fontSize: 11,
+              fontWeight: FontWeight.w600)),
           shape: const StadiumBorder()),
       navigationBarTheme: NavigationBarThemeData(
           backgroundColor: surface,
           surfaceTintColor: Colors.transparent,
-          indicatorColor: lime,
+          indicatorColor: accent,
           indicatorShape: const StadiumBorder(),
           height: 74,
           iconTheme: WidgetStateProperty.resolveWith((s) => IconThemeData(
-              color: s.contains(WidgetState.selected) ? ink : secondary)),
+              color: s.contains(WidgetState.selected) ? onAccent : secondary)),
           labelTextStyle: WidgetStatePropertyAll(
               TextStyle(fontFamily: 'Manrope', color: text, fontSize: 11))),
       listTileTheme: ListTileThemeData(
           iconColor: secondary,
-          selectedColor: ink,
+          selectedColor: onAccent,
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 18, vertical: 5),
           shape: const StadiumBorder()),
