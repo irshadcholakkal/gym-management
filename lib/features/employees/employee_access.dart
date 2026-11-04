@@ -65,6 +65,10 @@ Future<void> showEmployeeAccess(
               _ => base.finances,
             };
         return AlertDialog(
+          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+          contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+          actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+          actionsOverflowButtonSpacing: 8,
           title: const Text('Employee access'),
           content: SizedBox(
             width: 480,
@@ -101,7 +105,9 @@ Future<void> showEmployeeAccess(
                       const SizedBox(height: 16),
                       DropdownButtonFormField<GymRole>(
                           initialValue: role,
-                          decoration: const InputDecoration(labelText: 'Role'),
+                          decoration: const InputDecoration(
+                              labelText: 'Role',
+                              prefixIcon: Icon(Icons.badge_outlined)),
                           items: [
                             for (final value in GymRole.values
                                 .where((value) => value != GymRole.owner))

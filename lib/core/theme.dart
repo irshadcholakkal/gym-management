@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Emirates-inspired red and white by day; graphite and lime by night.
+/// Warm, welcoming surfaces and a consistent rose accent in both appearances.
 abstract final class GymTheme {
-  static const ink = Color(0xFF171C22);
+  static const ink = Color(0xFF222222);
+  static const rose = Color(0xFFE31C5F);
   static const emiratesRed = Color(0xFFD71920);
-  static const blue = emiratesRed;
+  static const blue = rose;
   static const sage = blue;
   static const lime = Color(0xFFB6FF24);
   static const muted = Color(0xFF78818C);
-  static const border = Color(0xFFECE5E5);
-  static const canvas = Color(0xFFFAF8F8);
-  static const softBlue = Color(0xFFFFECEC);
+  static const border = Color(0xFFEBEBEB);
+  static const canvas = Color(0xFFFAFAFA);
+  static const softBlue = Color(0xFFFFF0F3);
   static final light = _build(Brightness.light);
   static final dark = _build(Brightness.dark);
   static final mobile = compact(light);
 
   static ThemeData compact(ThemeData theme) => theme.copyWith(
-        visualDensity: VisualDensity.compact,
+        visualDensity: VisualDensity.standard,
         textTheme: theme.textTheme.copyWith(
           headlineLarge: theme.textTheme.headlineLarge?.copyWith(fontSize: 26),
           headlineSmall: theme.textTheme.headlineSmall?.copyWith(fontSize: 22),
@@ -30,20 +31,20 @@ abstract final class GymTheme {
 
   static ThemeData _build(Brightness brightness) {
     final dark = brightness == Brightness.dark;
-    final surface = dark ? const Color(0xFF20262F) : Colors.white;
-    final background = dark ? const Color(0xFF131920) : canvas;
-    final text = dark ? const Color(0xFFF3F5EF) : ink;
-    final secondary = dark ? const Color(0xFFA6AFBA) : const Color(0xFF70666A);
-    final line = dark ? const Color(0xFF363E47) : border;
-    final primary = dark ? lime : emiratesRed;
-    final accent = dark ? lime : emiratesRed;
+    final surface = dark ? const Color(0xFF242225) : Colors.white;
+    final background = dark ? const Color(0xFF181719) : canvas;
+    final text = dark ? const Color(0xFFF7F5F6) : ink;
+    final secondary = dark ? const Color(0xFFB8B2B6) : const Color(0xFF717171);
+    final line = dark ? const Color(0xFF3D383C) : border;
+    final primary = dark ? const Color(0xFFFF8DAA) : rose;
+    final accent = dark ? const Color(0xFFFF8DAA) : rose;
     final onAccent = dark ? ink : Colors.white;
-    final subtle = dark ? const Color(0xFF303C25) : softBlue;
+    final subtle = dark ? const Color(0xFF3C2931) : softBlue;
     final scheme =
         ColorScheme.fromSeed(seedColor: accent, brightness: brightness)
             .copyWith(
       primary: primary,
-      onPrimary: dark ? ink : Colors.white,
+      onPrimary: onAccent,
       primaryContainer: accent,
       onPrimaryContainer: onAccent,
       secondary: primary,
@@ -53,26 +54,27 @@ abstract final class GymTheme {
       onSurface: text,
       onSurfaceVariant: secondary,
       surfaceContainerHighest:
-          dark ? const Color(0xFF2A323C) : const Color(0xFFF6F2F2),
+          dark ? const Color(0xFF302C30) : const Color(0xFFF7F7F7),
       outline: secondary,
       outlineVariant: line,
     );
     final base = ThemeData(
         useMaterial3: true, colorScheme: scheme, fontFamily: 'Manrope');
     final shape = RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(28), side: BorderSide(color: line));
+        borderRadius: BorderRadius.circular(24), side: BorderSide(color: line));
     return base.copyWith(
       scaffoldBackgroundColor: background,
+      iconTheme: IconThemeData(color: secondary, size: 22),
       textTheme: base.textTheme
           .copyWith(
             headlineLarge: TextStyle(
                 fontSize: 34,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w700,
                 letterSpacing: -1.4,
                 color: text),
             headlineSmall: TextStyle(
                 fontSize: 28,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
                 letterSpacing: -1,
                 color: text),
             titleLarge: TextStyle(
@@ -89,7 +91,8 @@ abstract final class GymTheme {
           .apply(fontFamily: 'Manrope'),
       cardTheme: CardThemeData(
           color: surface,
-          elevation: 0,
+          elevation: 1,
+          shadowColor: Colors.black.withValues(alpha: dark ? .12 : .05),
           surfaceTintColor: Colors.transparent,
           margin: EdgeInsets.zero,
           shape: shape),
@@ -100,46 +103,109 @@ abstract final class GymTheme {
           surfaceTintColor: Colors.transparent),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: scheme.surfaceContainerHighest,
+        fillColor: surface,
+        labelStyle: TextStyle(color: secondary, fontSize: 14),
+        floatingLabelStyle:
+            TextStyle(color: primary, fontWeight: FontWeight.w600),
+        errorMaxLines: 3,
         hintStyle: TextStyle(color: secondary),
         prefixIconColor: secondary,
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
         border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide(color: line)),
         enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide(color: line)),
         focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide(color: primary, width: 1.5)),
       ),
       filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
               backgroundColor: accent,
               foregroundColor: onAccent,
-              minimumSize: const Size(44, 46),
+              minimumSize: const Size(44, 48),
               elevation: 0,
               textStyle: const TextStyle(
                   fontFamily: 'Manrope',
                   fontWeight: FontWeight.w700,
                   fontSize: 13),
               padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-              shape: const StadiumBorder())),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)))),
       outlinedButtonTheme: OutlinedButtonThemeData(
           style: OutlinedButton.styleFrom(
               foregroundColor: text,
-              minimumSize: const Size(44, 46),
+              minimumSize: const Size(44, 48),
               side: BorderSide(color: line),
-              shape: const StadiumBorder())),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)))),
       textButtonTheme: TextButtonThemeData(
           style: TextButton.styleFrom(
               minimumSize: const Size(44, 44), shape: const StadiumBorder())),
       iconButtonTheme: IconButtonThemeData(
-          style: IconButton.styleFrom(
-              foregroundColor: secondary, minimumSize: const Size(44, 44))),
-      dialogTheme: DialogThemeData(backgroundColor: surface, shape: shape),
+          style: IconButton.styleFrom(minimumSize: const Size(44, 44))),
+      dialogTheme: DialogThemeData(
+          backgroundColor: surface,
+          surfaceTintColor: Colors.transparent,
+          elevation: 12,
+          shadowColor: Colors.black.withValues(alpha: .16),
+          titleTextStyle: TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: text),
+          contentTextStyle: TextStyle(
+              fontFamily: 'Manrope', fontSize: 14, height: 1.5, color: text),
+          shape: shape),
+      popupMenuTheme: PopupMenuThemeData(
+          color: surface,
+          surfaceTintColor: Colors.transparent,
+          elevation: 8,
+          shadowColor: Colors.black.withValues(alpha: .12),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+              side: BorderSide(color: line)),
+          textStyle:
+              TextStyle(fontFamily: 'Manrope', fontSize: 13, color: text)),
+      dropdownMenuTheme: DropdownMenuThemeData(
+          menuStyle: MenuStyle(
+              backgroundColor: WidgetStatePropertyAll(surface),
+              surfaceTintColor:
+                  const WidgetStatePropertyAll(Colors.transparent),
+              shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18))))),
+      datePickerTheme: DatePickerThemeData(
+          backgroundColor: surface,
+          surfaceTintColor: Colors.transparent,
+          headerBackgroundColor: subtle,
+          headerForegroundColor: text,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          dayShape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)))),
+      timePickerTheme: TimePickerThemeData(
+          backgroundColor: surface,
+          dialBackgroundColor: scheme.surfaceContainerHighest,
+          dialHandColor: primary,
+          hourMinuteColor: subtle,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))),
+      switchTheme: SwitchThemeData(
+          thumbColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.selected) ? onAccent : secondary),
+          trackColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.selected) ? primary : line)),
+      checkboxTheme: CheckboxThemeData(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+          side: BorderSide(color: secondary, width: 1.5)),
+      tabBarTheme: TabBarThemeData(
+          labelColor: primary,
+          unselectedLabelColor: secondary,
+          indicatorColor: primary,
+          dividerColor: line),
       bottomSheetTheme: BottomSheetThemeData(
           backgroundColor: surface,
           showDragHandle: true,
@@ -157,16 +223,16 @@ abstract final class GymTheme {
       navigationBarTheme: NavigationBarThemeData(
           backgroundColor: surface,
           surfaceTintColor: Colors.transparent,
-          indicatorColor: accent,
+          indicatorColor: subtle,
           indicatorShape: const StadiumBorder(),
           height: 74,
           iconTheme: WidgetStateProperty.resolveWith((s) => IconThemeData(
-              color: s.contains(WidgetState.selected) ? onAccent : secondary)),
+              color: s.contains(WidgetState.selected) ? primary : secondary)),
           labelTextStyle: WidgetStatePropertyAll(
               TextStyle(fontFamily: 'Manrope', color: text, fontSize: 11))),
       listTileTheme: ListTileThemeData(
           iconColor: secondary,
-          selectedColor: onAccent,
+          selectedColor: primary,
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 18, vertical: 5),
           shape: const StadiumBorder()),

@@ -17,6 +17,7 @@ import 'sync/sync_engine.dart';
 import 'sync/workspace_repository.dart';
 import 'operation_error.dart';
 import 'record_labels.dart';
+import 'calendar_clock_field.dart';
 
 Future<void> showServerOperation(
   BuildContext context,
@@ -112,6 +113,10 @@ Future<void> showServerOperation(
     barrierDismissible: false,
     builder: (dialogContext) => StatefulBuilder(
       builder: (context, update) => AlertDialog(
+        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+        contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+        actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+        actionsOverflowButtonSpacing: 8,
         title: Text(
           {
             'subscribe': renewal ? 'Renew membership' : 'Create membership',
@@ -218,8 +223,8 @@ Future<void> showServerOperation(
                           enabled: !attempted,
                           maxLength: 500,
                           decoration: InputDecoration(
-                            labelText: 'Discount reason',
-                          ),
+                              labelText: 'Discount reason',
+                              prefixIcon: const Icon(Icons.notes_outlined)),
                           validator: (v) => (v?.trim().isEmpty ?? true)
                               ? 'Enter a reason for this discount'
                               : null,
@@ -269,15 +274,12 @@ Future<void> showServerOperation(
                     SizedBox(height: 14),
                   ],
                   if (type == 'subscribe' || type == 'transition')
-                    TextFormField(
+                    CalendarClockField(
                       controller: date,
                       enabled: !attempted,
-                      decoration: InputDecoration(
-                        labelText: type == 'subscribe'
-                            ? 'Membership start date'
-                            : 'Effective date',
-                        helperText: 'YYYY-MM-DD',
-                      ),
+                      label: type == 'subscribe'
+                          ? 'Membership start date'
+                          : 'Effective date',
                       validator: (v) {
                         final parsed = DateTime.tryParse(v ?? '');
                         return parsed == null ||
@@ -290,7 +292,9 @@ Future<void> showServerOperation(
                     SizedBox(height: 14),
                     DropdownButtonFormField<String>(
                       initialValue: action,
-                      decoration: InputDecoration(labelText: 'Action'),
+                      decoration: InputDecoration(
+                          labelText: 'Action',
+                          prefixIcon: const Icon(Icons.tune_rounded)),
                       items: [
                         for (final a in [
                           'pause',
@@ -309,7 +313,9 @@ Future<void> showServerOperation(
                     TextFormField(
                       controller: reason,
                       enabled: !attempted,
-                      decoration: InputDecoration(labelText: 'Reason'),
+                      decoration: InputDecoration(
+                          labelText: 'Reason',
+                          prefixIcon: const Icon(Icons.notes_outlined)),
                       validator: (v) => (v?.trim().isEmpty ?? true)
                           ? 'A reason is required'
                           : null,
@@ -320,8 +326,8 @@ Future<void> showServerOperation(
                         controller: amount,
                         enabled: !attempted,
                         decoration: InputDecoration(
-                          labelText: 'Extension days',
-                        ),
+                            labelText: 'Extension days',
+                            prefixIcon: const Icon(Icons.more_time_rounded)),
                         validator: (v) => (int.tryParse(v ?? '') ?? 0) <= 0
                             ? 'Enter positive whole days'
                             : null,
@@ -337,8 +343,8 @@ Future<void> showServerOperation(
                       controller: amount,
                       enabled: !attempted,
                       decoration: InputDecoration(
-                        labelText: 'Amount received',
-                      ),
+                          labelText: 'Amount received',
+                          prefixIcon: const Icon(Icons.payments_outlined)),
                       validator: (v) {
                         try {
                           if (Money.parse(v ?? '') <= 0) {
@@ -354,8 +360,9 @@ Future<void> showServerOperation(
                     DropdownButtonFormField<String>(
                       initialValue: method,
                       decoration: InputDecoration(
-                        labelText: 'Payment method',
-                      ),
+                          labelText: 'Payment method',
+                          prefixIcon: const Icon(
+                              Icons.account_balance_wallet_outlined)),
                       items: [
                         for (final m in [
                           'cash',
@@ -378,21 +385,25 @@ Future<void> showServerOperation(
                       controller: reason,
                       enabled: !attempted,
                       decoration: InputDecoration(
-                        labelText: 'Payment reference (optional)',
-                      ),
+                          labelText: 'Payment reference (optional)',
+                          prefixIcon: const Icon(Icons.tag_outlined)),
                     ),
                   ],
                   if (type == 'invite') ...[
                     TextFormField(
                       controller: name,
-                      decoration: InputDecoration(labelText: 'Full name'),
+                      decoration: InputDecoration(
+                          labelText: 'Full name',
+                          prefixIcon: const Icon(Icons.person_outline_rounded)),
                       validator: (v) =>
                           v == null || v.trim().isEmpty ? 'Enter a name' : null,
                     ),
                     SizedBox(height: 14),
                     TextFormField(
                       controller: email,
-                      decoration: InputDecoration(labelText: 'Email'),
+                      decoration: InputDecoration(
+                          labelText: 'Email',
+                          prefixIcon: const Icon(Icons.mail_outline_rounded)),
                       validator: (v) => RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
                               .hasMatch(v ?? '')
                           ? null
@@ -402,13 +413,15 @@ Future<void> showServerOperation(
                     TextFormField(
                       controller: phone,
                       decoration: InputDecoration(
-                        labelText: 'Phone (+country code)',
-                      ),
+                          labelText: 'Phone (+country code)',
+                          prefixIcon: const Icon(Icons.phone_outlined)),
                     ),
                     SizedBox(height: 14),
                     DropdownButtonFormField<String>(
                       initialValue: role,
-                      decoration: InputDecoration(labelText: 'Role'),
+                      decoration: InputDecoration(
+                          labelText: 'Role',
+                          prefixIcon: const Icon(Icons.badge_outlined)),
                       items: [
                         for (final r in [
                           'admin',
@@ -435,8 +448,10 @@ Future<void> showServerOperation(
                     TextFormField(
                         controller: username,
                         autocorrect: false,
-                        decoration:
-                            InputDecoration(labelText: 'Username (optional)'),
+                        decoration: InputDecoration(
+                            labelText: 'Username (optional)',
+                            prefixIcon:
+                                const Icon(Icons.alternate_email_rounded)),
                         validator: (value) {
                           final text = (value ?? '').trim().toLowerCase();
                           return text.isEmpty ||
@@ -481,7 +496,8 @@ Future<void> showServerOperation(
                       padding: EdgeInsets.only(top: 16),
                       child: Text(
                         error!,
-                        style: TextStyle(color: Colors.red),
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.error),
                       ),
                     ),
                 ],

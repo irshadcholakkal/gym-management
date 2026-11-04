@@ -24,14 +24,14 @@ Future<void> showAdjustment(
   final operation = const Uuid().v4();
   String? package, error;
   var policy = 'next_renewal', busy = false, attempted = false;
-  final packages =
-      await (repo.db.select(repo.db.cachedRecords)..where(
-            (r) =>
-                r.scope.equals(repo.scope) &
-                r.kind.equals('membership_packages') &
-                r.syncState.equals('synced'),
-          ))
-          .get();
+  final packages = await (repo.db.select(repo.db.cachedRecords)
+        ..where(
+          (r) =>
+              r.scope.equals(repo.scope) &
+              r.kind.equals('membership_packages') &
+              r.syncState.equals('synced'),
+        ))
+      .get();
   if (!context.mounted) {
     reason.dispose();
     return;
@@ -41,12 +41,16 @@ Future<void> showAdjustment(
     barrierDismissible: false,
     builder: (dialogContext) => StatefulBuilder(
       builder: (context, update) => AlertDialog(
+        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+        contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+        actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+        actionsOverflowButtonSpacing: 8,
         title: Text(
           packageChange
               ? 'Change membership package'
               : deactivate
-              ? 'Deactivate employee'
-              : 'Reverse payment',
+                  ? 'Deactivate employee'
+                  : 'Reverse payment',
         ),
         content: SizedBox(
           width: 440,
@@ -60,8 +64,8 @@ Future<void> showAdjustment(
                     packageChange
                         ? 'Immediate changes use daily-rate proration over the remaining paid term. The server retains every invoice and adjustment.'
                         : deactivate
-                        ? 'This removes gym access. The employee account and audit history are retained.'
-                        : 'This restores the invoice balance and voids the official receipt. The original payment remains in the audit history.',
+                            ? 'This removes gym access. The employee account and audit history are retained.'
+                            : 'This restores the invoice balance and voids the official receipt. The original payment remains in the audit history.',
                   ),
                   const SizedBox(height: 16),
                   if (packageChange) ...[
@@ -108,7 +112,9 @@ Future<void> showAdjustment(
                   TextFormField(
                     controller: reason,
                     enabled: !attempted,
-                    decoration: const InputDecoration(labelText: 'Reason'),
+                    decoration: const InputDecoration(
+                        labelText: 'Reason',
+                        prefixIcon: Icon(Icons.notes_outlined)),
                     validator: (v) =>
                         v == null || v.trim().isEmpty ? 'Enter a reason' : null,
                   ),
@@ -117,7 +123,8 @@ Future<void> showAdjustment(
                       padding: const EdgeInsets.only(top: 16),
                       child: Text(
                         error!,
-                        style: const TextStyle(color: Colors.red),
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.error),
                       ),
                     ),
                 ],
@@ -181,12 +188,12 @@ Future<void> showAdjustment(
               busy
                   ? 'Saving…'
                   : attempted
-                  ? 'Retry request'
-                  : packageChange
-                  ? 'Change package'
-                  : deactivate
-                  ? 'Deactivate employee'
-                  : 'Reverse payment',
+                      ? 'Retry request'
+                      : packageChange
+                          ? 'Change package'
+                          : deactivate
+                              ? 'Deactivate employee'
+                              : 'Reverse payment',
             ),
           ),
         ],

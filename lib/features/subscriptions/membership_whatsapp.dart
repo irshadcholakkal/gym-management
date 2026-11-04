@@ -41,6 +41,10 @@ Future<void> showMembershipWhatsApp(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
             builder: (context, setState) => AlertDialog(
+              titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+              contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+              actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+              actionsOverflowButtonSpacing: 8,
               title: const Text('WhatsApp member'),
               content: SizedBox(
                   width: 480,

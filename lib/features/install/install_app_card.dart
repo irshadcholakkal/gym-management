@@ -35,6 +35,10 @@ class _InstallAppCardState extends State<InstallAppCard> {
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
+          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+          contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+          actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+          actionsOverflowButtonSpacing: 8,
           title: Text(result == 'accepted'
               ? 'Finish installing GymPro'
               : 'Install GymPro'),

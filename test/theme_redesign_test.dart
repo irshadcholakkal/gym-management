@@ -56,6 +56,10 @@ void main() {
     final icons = FontLoader('MaterialIcons')
       ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
     await icons.load();
+    final lineIcons = FontLoader('packages/cupertino_icons/CupertinoIcons')
+      ..addFont(rootBundle
+          .load('packages/cupertino_icons/assets/CupertinoIcons.ttf'));
+    await lineIcons.load();
     final db = GymDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
     final repo = WorkspaceRepository(

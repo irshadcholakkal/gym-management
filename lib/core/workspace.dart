@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import '../features/notifications/push_notification_controls.dart';
 import '../features/receipts/presentation/receipt_design_editor.dart';
 import '../features/receipts/presentation/receipt_preview.dart';
@@ -43,16 +44,16 @@ import 'sync/workspace_repository.dart';
 import 'theme.dart';
 
 const destinations = <(String, String, IconData)>[
-  ('/', 'Overview', Icons.space_dashboard_outlined),
-  ('/members', 'Members', Icons.people_outline_rounded),
-  ('/packages', 'Packages', Icons.inventory_2_outlined),
-  ('/subscriptions', 'Memberships', Icons.event_repeat_rounded),
-  ('/payments', 'Payments', Icons.account_balance_wallet_outlined),
-  ('/receipts', 'Receipts', Icons.receipt_long_outlined),
-  ('/employees', 'Team', Icons.badge_outlined),
-  ('/notifications', 'Notifications', Icons.notifications_none_rounded),
-  ('/sync', 'Sync center', Icons.cloud_sync_outlined),
-  ('/settings', 'Settings', Icons.tune_rounded),
+  ('/', 'Overview', CupertinoIcons.square_grid_2x2),
+  ('/members', 'Members', CupertinoIcons.person_2),
+  ('/packages', 'Packages', CupertinoIcons.cube_box),
+  ('/subscriptions', 'Memberships', CupertinoIcons.calendar),
+  ('/payments', 'Payments', CupertinoIcons.creditcard),
+  ('/receipts', 'Receipts', CupertinoIcons.doc_text),
+  ('/employees', 'Team', CupertinoIcons.person_crop_rectangle),
+  ('/notifications', 'Notifications', CupertinoIcons.bell),
+  ('/sync', 'Sync center', CupertinoIcons.cloud),
+  ('/settings', 'Settings', CupertinoIcons.slider_horizontal_3),
 ];
 
 class Workspace extends StatefulWidget {
@@ -117,6 +118,10 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
           : const Duration(milliseconds: 240),
       curve: Curves.easeOutCubic,
       width: collapsed ? 88 : 244,
+      decoration: BoxDecoration(
+          border: Border(
+              right: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant))),
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -363,7 +368,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                                   children: [
                                     Text(
                                       title == 'Overview'
-                                          ? 'Your gym. In motion.'
+                                          ? 'Welcome to your workspace'
                                           : title,
                                       style: Theme.of(context)
                                           .textTheme
@@ -372,7 +377,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                                     SizedBox(height: 6),
                                     Text(
                                       title == 'Overview'
-                                          ? 'A clear view of your community and daily operations.'
+                                          ? 'Your people, your progress, all in one place.'
                                           : 'Manage your ${title.toLowerCase()} in one place.',
                                       style: TextStyle(
                                         color: Theme.of(context)
@@ -416,15 +421,15 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                         context.go(['/', '/members', '/subscriptions'][i]),
                     destinations: [
                       NavigationDestination(
-                        icon: Icon(Icons.space_dashboard_outlined),
+                        icon: Icon(CupertinoIcons.square_grid_2x2),
                         label: 'Overview',
                       ),
                       NavigationDestination(
-                        icon: Icon(Icons.people_outline),
+                        icon: Icon(CupertinoIcons.person_2),
                         label: 'Members',
                       ),
                       NavigationDestination(
-                        icon: Icon(Icons.event_repeat),
+                        icon: Icon(CupertinoIcons.calendar),
                         label: 'Memberships',
                       ),
                     ],
@@ -599,7 +604,7 @@ class Dashboard extends StatelessWidget {
           (
             'Registered members',
             '${members.length}',
-            Icons.people_outline,
+            CupertinoIcons.person_2,
             Theme.of(context).colorScheme.secondaryContainer,
           ),
           (
@@ -618,7 +623,7 @@ class Dashboard extends StatelessWidget {
             (
               'Outstanding balance',
               Money.format(balance),
-              Icons.account_balance_wallet_outlined,
+              CupertinoIcons.creditcard,
               Theme.of(context).colorScheme.secondaryContainer,
             ),
           (
@@ -697,20 +702,27 @@ class Dashboard extends StatelessWidget {
                                     size: compact ? 18 : 24),
                               ),
                               SizedBox(height: compact ? 12 : 20),
-                              Text(
-                                m.$2,
-                                style:
-                                    Theme.of(context).textTheme.headlineSmall,
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(m.$2,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineSmall),
                               ),
                               SizedBox(height: 6),
-                              Text(
-                                m.$1,
-                                style: TextStyle(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                ),
-                              ),
+                              SizedBox(
+                                  height: 38,
+                                  child: Text(
+                                    m.$1,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                    ),
+                                  )),
                             ],
                           ),
                         ),
@@ -750,7 +762,7 @@ class Dashboard extends StatelessWidget {
                     Divider(height: 32),
                     if (members.isEmpty)
                       const EmptyPanel(
-                        icon: Icons.people_outline,
+                        icon: CupertinoIcons.person_2,
                         title: 'Your community starts here',
                         message:
                             'Add your first member to see registrations and membership activity.',
@@ -814,12 +826,12 @@ class Dashboard extends StatelessWidget {
                         if (repo.access.administer)
                           OutlinedButton.icon(
                             onPressed: () => context.go('/packages'),
-                            icon: Icon(Icons.inventory_2_outlined),
+                            icon: Icon(CupertinoIcons.cube_box),
                             label: Text('Manage packages'),
                           ),
                         OutlinedButton.icon(
                           onPressed: () => context.go('/sync'),
-                          icon: Icon(Icons.cloud_sync_outlined),
+                          icon: Icon(CupertinoIcons.cloud),
                           label: Text('Review sync activity'),
                         ),
                       ],
@@ -858,11 +870,19 @@ class EmptyPanel extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon,
-                  size: 40, color: Theme.of(context).colorScheme.primary),
+              Container(
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                child: Icon(icon,
+                    size: 36, color: Theme.of(context).colorScheme.primary),
+              ),
               SizedBox(height: 16),
               Text(
                 title,
+                textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
               SizedBox(height: 8),
@@ -960,7 +980,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                   },
                   decoration: InputDecoration(
                     hintText: 'Search records…',
-                    prefixIcon: Icon(Icons.search),
+                    prefixIcon: Icon(CupertinoIcons.search),
                   ),
                 ),
               ),
@@ -1008,13 +1028,13 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                 IconButton.filled(
                   tooltip: kind == 'members' ? 'Add member' : 'Create package',
                   onPressed: () => showRecordEditor(context, kind),
-                  icon: Icon(Icons.add),
+                  icon: Icon(CupertinoIcons.add),
                 ),
               if (kind == 'subscriptions' && repo.access.finances)
                 IconButton.filled(
                   tooltip: 'Create membership',
                   onPressed: () => showServerOperation(context, 'subscribe'),
-                  icon: Icon(Icons.add),
+                  icon: Icon(CupertinoIcons.add),
                 ),
               if (kind == 'employees' && repo.access.administer)
                 IconButton.filled(
@@ -1228,7 +1248,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                     'transition',
                                     record: r,
                                   ),
-                                  icon: Icon(Icons.more_horiz),
+                                  icon: Icon(CupertinoIcons.ellipsis),
                                 ),
                               if (kind == 'invoices' &&
                                   repo.access.finances &&
@@ -1372,7 +1392,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                           child: Icon(
                                             kind == 'members'
                                                 ? Icons.person_outline
-                                                : Icons.inventory_2_outlined,
+                                                : CupertinoIcons.cube_box,
                                           ),
                                         ),
                               title: Text(labels.title(kind, m)),
@@ -1399,6 +1419,13 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                               onTap: () => showDialog<void>(
                                 context: context,
                                 builder: (context) => AlertDialog(
+                                  titlePadding:
+                                      const EdgeInsets.fromLTRB(24, 24, 24, 16),
+                                  contentPadding:
+                                      const EdgeInsets.fromLTRB(24, 0, 24, 20),
+                                  actionsPadding:
+                                      const EdgeInsets.fromLTRB(24, 0, 24, 20),
+                                  actionsOverflowButtonSpacing: 8,
                                   title: Text(labels.title(kind, m)),
                                   content: RecordDetails(
                                     photos: widget.photos,
@@ -1463,14 +1490,14 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                             tooltip: 'Previous page',
                             onPressed:
                                 page == 0 ? null : () => setState(() => page--),
-                            icon: Icon(Icons.chevron_left),
+                            icon: Icon(CupertinoIcons.chevron_left),
                           ),
                           IconButton(
                             tooltip: 'Next page',
                             onPressed: start + 15 >= records.length
                                 ? null
                                 : () => setState(() => page++),
-                            icon: Icon(Icons.chevron_right),
+                            icon: Icon(CupertinoIcons.chevron_right),
                           ),
                         ],
                       ),
@@ -1528,6 +1555,10 @@ Future<void> showRecordEditor(
     barrierDismissible: false,
     builder: (dialogContext) => StatefulBuilder(
       builder: (context, update) => AlertDialog(
+        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+        contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+        actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+        actionsOverflowButtonSpacing: 8,
         title: Text(
           '${record == null ? 'Create' : 'Edit'} ${member ? 'member' : 'package'}',
         ),
@@ -1545,6 +1576,18 @@ Future<void> showRecordEditor(
                       child: TextFormField(
                         controller: controllers[f],
                         decoration: InputDecoration(
+                          prefixIcon: Icon(switch (f) {
+                            'full_name' => Icons.person_outline_rounded,
+                            'phone' => Icons.phone_outlined,
+                            'email' => Icons.mail_outline_rounded,
+                            'occupation' => Icons.work_outline_rounded,
+                            'address' => Icons.location_on_outlined,
+                            'price' => Icons.payments_outlined,
+                            'duration_value' => Icons.date_range_outlined,
+                            'allowed_pause_days' => Icons.pause_circle_outline,
+                            'notes' || 'description' => Icons.notes_outlined,
+                            _ => Icons.inventory_2_outlined,
+                          }),
                           labelText: {
                                 'full_name': 'Full name',
                                 'phone': 'Phone number',
@@ -1605,8 +1648,8 @@ Future<void> showRecordEditor(
                     DropdownButtonFormField<String>(
                       initialValue: unit,
                       decoration: InputDecoration(
-                        labelText: 'Duration unit',
-                      ),
+                          labelText: 'Duration unit',
+                          prefixIcon: const Icon(Icons.date_range_outlined)),
                       items: [
                         for (final u in ['days', 'weeks', 'months', 'years'])
                           DropdownMenuItem(
@@ -1619,7 +1662,9 @@ Future<void> showRecordEditor(
                   SizedBox(height: 14),
                   DropdownButtonFormField<String>(
                     initialValue: status,
-                    decoration: InputDecoration(labelText: 'Status'),
+                    decoration: InputDecoration(
+                        labelText: 'Status',
+                        prefixIcon: const Icon(Icons.verified_outlined)),
                     items: [
                       for (final s in ['active', 'inactive', 'archived'])
                         DropdownMenuItem(
@@ -1634,7 +1679,8 @@ Future<void> showRecordEditor(
                       padding: EdgeInsets.only(top: 12),
                       child: Text(
                         error!,
-                        style: TextStyle(color: Colors.red),
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.error),
                       ),
                     ),
                 ],
@@ -1728,7 +1774,7 @@ class RecordActionsMenu extends StatelessWidget {
     if (buttons.isEmpty) return SizedBox.shrink();
     return PopupMenuButton<int>(
       tooltip: 'Record actions',
-      icon: Icon(Icons.more_horiz, size: 20),
+      icon: Icon(CupertinoIcons.ellipsis, size: 20),
       onSelected: (index) => buttons[index].onPressed?.call(),
       itemBuilder: (_) => [
         for (var i = 0; i < buttons.length; i++)
@@ -1825,6 +1871,13 @@ class SyncCenter extends StatelessWidget {
                                 final discard = await showDialog<bool>(
                                   context: context,
                                   builder: (context) => AlertDialog(
+                                    titlePadding: const EdgeInsets.fromLTRB(
+                                        24, 24, 24, 16),
+                                    contentPadding: const EdgeInsets.fromLTRB(
+                                        24, 0, 24, 20),
+                                    actionsPadding: const EdgeInsets.fromLTRB(
+                                        24, 0, 24, 20),
+                                    actionsOverflowButtonSpacing: 8,
                                     title: Text('Discard local change?'),
                                     content: SingleChildScrollView(
                                       child: SelectableText(

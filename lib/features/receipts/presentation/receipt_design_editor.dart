@@ -147,6 +147,10 @@ class _ReceiptDesignEditorState extends State<ReceiptDesignEditor> {
     return await showDialog<bool>(
             context: context,
             builder: (context) => AlertDialog(
+                    titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+                    contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+                    actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+                    actionsOverflowButtonSpacing: 8,
                     title: const Text('Discard unsaved changes?'),
                     content:
                         const Text('Your saved design will stay unchanged.'),
