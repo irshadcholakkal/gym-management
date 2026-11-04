@@ -8,3 +8,9 @@ Future<String> subscribePush(String key) async =>
 @JS('gymproPushStatus')
 external JSPromise<JSString> _status();
 Future<String> pushDeviceStatus() async => (await _status().toDart).toDart;
+
+@JS('gymproPushTestDisplay')
+external JSPromise<JSAny?> _testDisplay();
+Future<void> testPushDisplay() async {
+  await _testDisplay().toDart;
+}

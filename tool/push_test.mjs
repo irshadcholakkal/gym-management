@@ -97,3 +97,23 @@ test('Service worker displays a distinct test notification from a server test pa
   assert.match(shown[0].options.body, /Test successful/);
   assert.match(shown[0].options.data.url, /notifications/);
 });
+
+test('Device display check uses the active worker without creating a subscription', async () => {
+  const shown = [];
+  const context = vm.createContext({
+    window: { Notification: {}, isSecureContext: true, addEventListener() {} },
+    Notification: { permission: 'granted' },
+    navigator: { serviceWorker: { getRegistration: async () => ({
+      active: {}, scope: 'https://gym.example/app/',
+      showNotification: async (title, options) => shown.push({ title, options }),
+    }) } }, URL,
+  });
+  vm.runInContext(readFileSync(new URL('../web/pwa.js', import.meta.url), 'utf8'), context);
+  await context.window.gymproPushTestDisplay();
+  assert.equal(shown.length, 1);
+  assert.match(shown[0].options.body, /Device display test/);
+  assert.equal(shown[0].options.data.url, 'https://gym.example/app/#/notifications');
+  context.Notification.permission = 'denied';
+  await assert.rejects(context.window.gymproPushTestDisplay(), /Allow notifications/);
+  assert.equal(shown.length, 1);
+});

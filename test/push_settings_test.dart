@@ -3,10 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gym_saas/core/theme.dart';
 import 'package:gym_saas/features/notifications/data/device_push_controller.dart';
 import 'package:gym_saas/features/notifications/push_notification_controls.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class FakePush implements DevicePushController {
   PushAvailability availability = PushAvailability.disabled;
-  int tests = 0, enables = 0;
+  int tests = 0, enables = 0, displays = 0;
+  int? failureStatus;
   @override
   Future<PushAvailability> status() async => availability;
   @override
@@ -18,6 +20,12 @@ class FakePush implements DevicePushController {
   @override
   Future<void> test() async {
     tests++;
+    if (failureStatus != null) throw FunctionException(status: failureStatus!);
+  }
+
+  @override
+  Future<void> testDisplay() async {
+    displays++;
   }
 }
 
@@ -36,8 +44,14 @@ void main() {
     await tester.tap(find.text('Test notification'));
     await tester.pumpAndSettle();
     expect(push.tests, 1);
-    expect(find.text('Test push sent. Check this device notifications.'),
+    expect(
+        find.text(
+            'The push provider accepted the test. Check this device notifications.'),
         findsOneWidget);
+    await tester.tap(find.text('Test device display'));
+    await tester.pumpAndSettle();
+    expect(push.displays, 1);
+    expect(push.tests, 1);
     push.availability = PushAvailability.blocked;
     await tester.tap(find.byTooltip('Refresh push status'));
     await tester.pumpAndSettle();
@@ -57,5 +71,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(push.enables, 1);
     expect(find.text('Push enabled'), findsOneWidget);
+  });
+  testWidgets('Provider credential rejection explains how to reconnect',
+      (tester) async {
+    final push = FakePush()
+      ..availability = PushAvailability.enabled
+      ..failureStatus = 422;
+    await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+            body: PushNotificationControls(controller: push, showTest: true))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Test notification'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('administrator must verify the VAPID key pair'),
+        findsOneWidget);
+    expect(find.textContaining('provider accepted'), findsNothing);
   });
 }

@@ -10,6 +10,7 @@ abstract interface class DevicePushController {
   Future<PushAvailability> status();
   Future<void> enable();
   Future<void> test();
+  Future<void> testDisplay();
 }
 
 class WebDevicePushController implements DevicePushController {
@@ -56,9 +57,16 @@ class WebDevicePushController implements DevicePushController {
     if (device['permission'] != 'granted' || subscription is! Map) {
       throw StateError('Enable push notifications on this device first.');
     }
-    await client.functions.invoke('test-push',
+    final response = await client.functions.invoke('test-push',
         body: {'gym_id': access.gymId, 'endpoint': subscription['endpoint']});
+    if (response.data is! Map || response.data['sent'] != true) {
+      throw StateError(
+          'The server did not confirm that the push was accepted.');
+    }
   }
+
+  @override
+  Future<void> testDisplay() => testPushDisplay();
 }
 
 class UnsupportedDevicePushController implements DevicePushController {
@@ -70,4 +78,7 @@ class UnsupportedDevicePushController implements DevicePushController {
   @override
   Future<void> test() async => throw UnsupportedError(
       'Open the installed web app to test push notifications.');
+  @override
+  Future<void> testDisplay() async => throw UnsupportedError(
+      'Open the installed web app to test notification display.');
 }

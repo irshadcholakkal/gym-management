@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
+import { isSupportedPushEndpoint } from '../_shared/push_endpoint.ts';
 
 Deno.serve(async (req: Request) => {
   const secret = Deno.env.get('REMINDER_JOB_SECRET');
@@ -17,9 +18,7 @@ Deno.serve(async (req: Request) => {
   for (const job of jobs ?? []) {
     let success = false, gone = false, message = '';
     try {
-      const endpoint = new URL(job.subscription.endpoint);
-      const host = endpoint.hostname;
-      if (!(host === 'fcm.googleapis.com' || host.endsWith('.push.services.mozilla.com') || host === 'updates.push.services.mozilla.com' || host.endsWith('.push.apple.com') || host.endsWith('.notify.windows.com'))) {
+      if (!isSupportedPushEndpoint(job.subscription.endpoint)) {
         gone = true; throw new Error('Unsupported push endpoint');
       }
       await webpush.sendNotification(job.subscription, JSON.stringify({

@@ -1,5 +1,6 @@
 import { createClient as makeClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
+import { isSupportedPushEndpoint } from '../_shared/push_endpoint.ts';
 type Dependencies = { createClient: typeof makeClient; push: typeof webpush; env: (name: string) => string | undefined };
 export function testPushHandler(deps: Dependencies = { createClient: makeClient, push: webpush, env: name => Deno.env.get(name) }) {
 const { createClient, push: webpush, env } = deps;
@@ -20,12 +21,14 @@ return async (req: Request) => {
     // RLS and explicit recipient filtering restrict tests to this user's own active subscription.
     const { data: subscription, error } = await client.from('push_subscriptions').select('endpoint,keys').eq('gym_id', input.gym_id).eq('user_id', user.id).eq('endpoint', input.endpoint).eq('enabled', true).maybeSingle();
     if (error || !subscription) return reply('Enable push notifications on this device first', 409);
-    const endpoint = new URL(subscription.endpoint);
-    const host = endpoint.hostname;
-    if (endpoint.protocol !== 'https:' || endpoint.username || endpoint.password || (endpoint.port && endpoint.port !== '443') || !(host === 'fcm.googleapis.com' || host.endsWith('.push.services.mozilla.com') || host === 'updates.push.services.mozilla.com' || host.endsWith('.push.apple.com') || host.endsWith('.notify.windows.com'))) return reply('Unsupported push provider', 400);
+    if (!isSupportedPushEndpoint(subscription.endpoint)) return reply('Unsupported push provider', 400);
     const publicKey = env('VAPID_PUBLIC_KEY'), privateKey = env('VAPID_PRIVATE_KEY'), subject = env('VAPID_SUBJECT');
     if (!publicKey || !privateKey || !subject) return reply('Server push is not configured', 503);
-    webpush.setVapidDetails(subject, publicKey, privateKey);
+    try {
+      webpush.setVapidDetails(subject, publicKey, privateKey);
+    } catch {
+      return reply('Server push credentials are invalid', 503);
+    }
     try {
       await webpush.sendNotification(subscription, JSON.stringify({ type: 'test', gym_id: input.gym_id }), { TTL: 60, timeout: 10000 });
     } catch (failure) {
@@ -33,6 +36,9 @@ return async (req: Request) => {
       if (code === 404 || code === 410) {
         await client.rpc('remove_push', { p_gym: input.gym_id, p_endpoint: input.endpoint });
         return reply('Push subscription expired', 410);
+      }
+      if (code === 401 || code === 403) {
+        return reply('Push provider rejected the server credentials. Verify the VAPID key pair and reconnect this device.', 422);
       }
       return reply('Push provider could not accept the test', 502);
     }

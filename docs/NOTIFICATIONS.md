@@ -20,3 +20,16 @@ In-app notifications remain available without push permission or VAPID configura
 Use a test membership with last valid day today/tomorrow and invoke the reminder job with its job secret. Check the inbox and delivery records; repeat the job to confirm no duplicates. Close the PWA and wait for push delivery. Tap the notification, sign in if needed, and use View membership. Verify that a second user cannot see another recipient's alert and that paused or renewed dates retire obsolete alerts.
 
 Local checks: `flutter analyze`, `flutter test`, and `node --test test/push_worker_test.mjs`. SQL and real browser delivery require a configured Supabase project and subscribed device.
+
+## Diagnosing a missing test notification
+
+Settings provides two separate checks:
+
+- **Test device display** asks this browser's active service worker to display a local notification. It does not contact the push server or confirm remote delivery. If the request succeeds but nothing appears, check the browser/site and operating system notification settings, notification center, and Do Not Disturb.
+- **Test notification** sends through the authenticated `test-push` function to the current device only. Acceptance by the provider does not prove that the operating system displayed a notification.
+
+The server reports missing/invalid VAPID configuration as HTTP 503, expired subscriptions as 410, and provider rejection of credentials as 422. For credential rejection, verify that the deployed server's public/private VAPID keys match the public key compiled into the web app, configure a valid VAPID subject, then reconnect the device. A temporary provider failure remains 502. Server diagnostics never return private keys or raw provider responses.
+
+Deploy the updated `test-push` function and rebuild/redeploy the web app to publish these diagnostics and the display check. Existing deployed clients do not gain them from local code changes.
+
+Firebase Cloud Messaging can replace the delivery transport, but is not configured in this repository. A migration needs a Firebase project, web app configuration, web push credentials, server-side sending credentials, token registration/refresh and reminder delivery changes. Web FCM still depends on notification permission and a service worker; it does not bypass device notification settings. Keep existing Supabase authentication and recipient authorization if adding FCM.

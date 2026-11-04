@@ -51,6 +51,19 @@
     const subscription = registration ? await registration.pushManager.getSubscription() : null;
     return JSON.stringify({ permission: Notification.permission, subscription: subscription ? subscription.toJSON() : null });
   };
+  // This isolates browser/OS display from server delivery; it is not a remote push.
+  window.gymproPushTestDisplay = async () => {
+    if (!window.isSecureContext || !('serviceWorker' in navigator) || !('Notification' in window)) throw new Error('Use the installed web app or a supported browser over HTTPS.');
+    if (Notification.permission !== 'granted') throw new Error('Allow notifications for this app before testing display.');
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (!registration?.active) throw new Error('The notification service worker is not active. Reload the app and try again.');
+    const base = new URL('./', registration.scope);
+    await registration.showNotification('GymPro UAE', {
+      body: 'Device display test. Your browser can request notifications on this device.',
+      tag: 'gympro-display-test', icon: new URL('icons/Icon-192.png', base).href,
+      data: { url: new URL('./#/notifications', base).href },
+    });
+  };
   window.gymproPushSubscribe = async key => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) throw new Error('This browser does not support web push. In-app reminders remain available.');
     if (!window.isSecureContext) throw new Error('Push requires HTTPS.');

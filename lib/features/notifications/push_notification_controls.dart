@@ -75,39 +75,55 @@ class _PushNotificationControlsState extends State<PushNotificationControls>
     }
   }
 
-  Future<void> run(bool test) async {
+  Future<void> run(bool test, {bool display = false}) async {
     setState(() {
       busy = true;
       message = null;
     });
     try {
-      if (test) {
+      if (display) {
+        await controller!.testDisplay();
+      } else if (test) {
         await controller!.test();
       } else {
         await controller!.enable();
       }
       if (mounted) {
-        setState(() => message = test
-            ? 'Test push sent. Check this device notifications.'
-            : 'Push notifications enabled on this device.');
+        setState(() => message = display
+            ? 'Device display requested. If nothing appears, check browser and system notification settings, including Do Not Disturb.'
+            : test
+                ? 'The push provider accepted the test. Check this device notifications.'
+                : 'Push notifications enabled on this device.');
       }
     } on FunctionException catch (error) {
       if (mounted) {
         setState(() => message = error.status == 404
             ? 'The push test service is not available yet. Ask the app administrator to deploy it.'
+            : error.status == 400
+                ? 'The server rejected this device subscription. Reconnect push; if it persists, the server push-provider configuration needs updating.'
             : error.status == 410
                 ? 'This subscription expired. Enable push notifications again.'
                 : error.status == 503
                     ? 'Push delivery is not configured on the server yet.'
-                    : error.status == 409
-                        ? 'Enable push notifications on this device first.'
-                        : 'Could not send the test push. Check your connection and try again.');
+                    : error.status == 422
+                        ? 'The push provider rejected the server credentials. The administrator must verify the VAPID key pair, then reconnect push on this device.'
+                        : error.status == 401
+                            ? 'Your session has expired. Sign in again, then retry the test.'
+                            : error.status == 502
+                                ? 'The push provider could not accept the test. Try again shortly.'
+                                : error.status == 409
+                                    ? 'Enable push notifications on this device first.'
+                                    : 'Could not send the test push. Check your connection and try again.');
       }
     } catch (error) {
       if (mounted) {
-        setState(() => message = test
-            ? 'Could not send the test push. Check your connection and try again.'
-            : 'Push could not be enabled. ${error.toString()}');
+        setState(() => message = display
+            ? 'Device display could not be requested. Allow notifications for this app, reload it, and try again.'
+            : error is StateError
+                ? error.message
+                : test
+                    ? 'Could not send the test push. Check your connection and try again.'
+                    : 'Push could not be enabled. ${error.toString()}');
       }
     } finally {
       await refresh();
@@ -162,6 +178,17 @@ class _PushNotificationControlsState extends State<PushNotificationControls>
                       label: Text(busy && enabled
                           ? 'Sending...'
                           : 'Test notification')),
+                if (widget.showTest)
+                  TextButton.icon(
+                    onPressed: loading ||
+                            busy ||
+                            availability == PushAvailability.blocked ||
+                            availability == PushAvailability.unavailable
+                        ? null
+                        : () => run(false, display: true),
+                    icon: const Icon(Icons.notifications_outlined),
+                    label: const Text('Test device display'),
+                  ),
                 IconButton(
                     tooltip: 'Refresh push status',
                     onPressed: busy ? null : refresh,
@@ -170,6 +197,11 @@ class _PushNotificationControlsState extends State<PushNotificationControls>
           if (widget.showTest && availability == PushAvailability.blocked)
             const Text(
                 'Allow notifications in your browser site settings, then refresh the status.'),
+          if (widget.showTest)
+            const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text(
+                    'Test notification checks server delivery. Test device display checks this browser without sending a remote push.')),
           if (widget.showTest && availability == PushAvailability.unavailable)
             const Text(
                 'Use a browser that supports web push. On iPhone or iPad, open the installed web app.'),
