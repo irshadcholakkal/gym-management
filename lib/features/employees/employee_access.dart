@@ -166,24 +166,27 @@ Future<void> showEmployeeAccess(
                             'p_username': username.text.trim().toLowerCase(),
                             'p_options': options
                           });
-                          if (dialogContext.mounted)
+                          if (dialogContext.mounted) {
                             Navigator.pop(dialogContext);
+                          }
                           await sync.sync();
                         } on PostgrestException catch (failure) {
-                          if (context.mounted)
+                          if (context.mounted) {
                             update(() {
                               error = failure.code == '23505'
                                   ? 'That username is already in use. Choose another.'
                                   : 'Could not update access. Check your connection and administrator permissions.';
                               busy = false;
                             });
+                          }
                         } catch (_) {
-                          if (context.mounted)
+                          if (context.mounted) {
                             update(() {
                               error =
                                   'Could not update employee access. Try again.';
                               busy = false;
                             });
+                          }
                         }
                       },
                 child: Text(busy ? 'Saving…' : 'Save access')),

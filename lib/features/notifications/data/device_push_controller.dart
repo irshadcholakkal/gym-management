@@ -21,12 +21,14 @@ class WebDevicePushController implements DevicePushController {
   @override
   Future<PushAvailability> status() async {
     final device = await _device();
-    if (device['permission'] == 'unsupported')
+    if (device['permission'] == 'unsupported') {
       return PushAvailability.unavailable;
+    }
     if (device['permission'] == 'denied') return PushAvailability.blocked;
     final subscription = device['subscription'];
-    if (device['permission'] != 'granted' || subscription is! Map)
+    if (device['permission'] != 'granted' || subscription is! Map) {
       return PushAvailability.disabled;
+    }
     final row = await client
         .from('push_subscriptions')
         .select('enabled')
@@ -51,8 +53,9 @@ class WebDevicePushController implements DevicePushController {
   Future<void> test() async {
     final device = await _device();
     final subscription = device['subscription'];
-    if (device['permission'] != 'granted' || subscription is! Map)
+    if (device['permission'] != 'granted' || subscription is! Map) {
       throw StateError('Enable push notifications on this device first.');
+    }
     await client.functions.invoke('test-push',
         body: {'gym_id': access.gymId, 'endpoint': subscription['endpoint']});
   }

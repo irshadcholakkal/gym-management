@@ -25,12 +25,14 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
   AuthRepository? _auth;
   StreamSubscription<SessionState>? _subscription;
   final _refresh = RouterRefresh();
+  final _appearance = ThemePreference();
   late final GoRouter _router;
   String? _pendingNotification;
   late final SemanticsHandle _semantics;
   @override
   void initState() {
     super.initState();
+    unawaited(_appearance.restore());
     _semantics = WidgetsBinding.instance.ensureSemantics();
     WidgetsBinding.instance.addObserver(this);
     if (widget.client != null) {
@@ -193,21 +195,31 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
     _subscription?.cancel();
     _router.dispose();
     _refresh.dispose();
+    _appearance.dispose();
     _session?.close();
     _semantics.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => MaterialApp.router(
-        title: 'GymPro UAE',
-        debugShowCheckedModeBanner: false,
-        theme: GymTheme.light,
-        builder: (context, child) => MediaQuery.sizeOf(context).width < 600
-            ? Theme(
-                data: GymTheme.mobile, child: child ?? const SizedBox.shrink())
-            : child ?? const SizedBox.shrink(),
-        routerConfig: _router,
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: _appearance,
+        builder: (context, _) => ThemeScope(
+            preference: _appearance,
+            child: MaterialApp.router(
+              title: 'GymPro UAE',
+              debugShowCheckedModeBanner: false,
+              theme: GymTheme.light,
+              darkTheme: GymTheme.dark,
+              themeMode: _appearance.mode,
+              builder: (context, child) =>
+                  MediaQuery.sizeOf(context).width < 600
+                      ? Theme(
+                          data: GymTheme.compact(Theme.of(context)),
+                          child: child ?? const SizedBox.shrink())
+                      : child ?? const SizedBox.shrink(),
+              routerConfig: _router,
+            )),
       );
 }
 
@@ -219,6 +231,7 @@ class SetupPage extends StatelessWidget {
   const SetupPage({super.key});
   @override
   Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(actions: const [ThemeSwitcher(), SizedBox(width: 12)]),
         body: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),

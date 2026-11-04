@@ -62,7 +62,8 @@ class _SignupPageState extends State<SignupPage> {
     } catch (_) {
       if (mounted) {
         setState(
-          () => _error = 'Unable to create your account. Check your connection and try again.',
+          () => _error =
+              'Unable to create your account. Check your connection and try again.',
         );
       }
     } finally {
@@ -72,171 +73,174 @@ class _SignupPageState extends State<SignupPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    body: Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 460),
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: AutofillGroup(
-                child: Form(
-                  key: _form,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Icon(
-                        Icons.fitness_center_rounded,
-                        size: 42,
-                        color: GymTheme.sage,
-                      ),
-                      const SizedBox(height: 18),
-                      Text(
-                        _submitted
-                            ? (_confirmationRequired
-                                  ? 'Check your email'
-                                  : 'Account created')
-                            : 'Create your account',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.headlineLarge,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        _submitted
-                            ? (_confirmationRequired
-                                  ? 'Confirm your email using the link we sent, then sign in. If you already have an account, sign in instead.'
-                                  : 'Your account is ready. Your gym administrator can now assign your workspace access.')
-                            : 'Join your gym’s workspace with your own secure login.',
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 24),
-                      if (!_submitted) ...[
-                        TextFormField(
-                          controller: _name,
-                          enabled: !_busy,
-                          autofillHints: const [AutofillHints.name],
-                          textCapitalization: TextCapitalization.words,
-                          decoration: const InputDecoration(
-                            labelText: 'Full name',
-                            prefixIcon: Icon(Icons.person_outline),
+        appBar: AppBar(actions: const [ThemeSwitcher(), SizedBox(width: 12)]),
+        body: Center(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: 460),
+              child: Card(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: AutofillGroup(
+                    child: Form(
+                      key: _form,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Icon(
+                            Icons.fitness_center_rounded,
+                            size: 42,
+                            color: Theme.of(context).colorScheme.primary,
                           ),
-                          validator: (value) => (value?.trim().isEmpty ?? true)
-                              ? 'Enter your full name'
-                              : null,
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _email,
-                          enabled: !_busy,
-                          autofillHints: const [AutofillHints.email],
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(
-                            labelText: 'Work email',
-                            prefixIcon: Icon(Icons.mail_outline),
+                          SizedBox(height: 18),
+                          Text(
+                            _submitted
+                                ? (_confirmationRequired
+                                    ? 'Check your email'
+                                    : 'Account created')
+                                : 'Create your account',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.headlineLarge,
                           ),
-                          validator: (value) =>
-                              RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
-                                  .hasMatch(value?.trim() ?? '')
-                              ? null
-                              : 'Enter a valid email address',
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _password,
-                          enabled: !_busy,
-                          obscureText: _obscure,
-                          autofillHints: const [AutofillHints.newPassword],
-                          decoration: InputDecoration(
-                            labelText: 'Password',
-                            helperText: 'Use at least 12 characters',
-                            prefixIcon: const Icon(Icons.lock_outline),
-                            suffixIcon: IconButton(
-                              tooltip: _obscure
-                                  ? 'Show password'
-                                  : 'Hide password',
-                              onPressed: () =>
-                                  setState(() => _obscure = !_obscure),
-                              icon: Icon(
-                                _obscure
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
+                          SizedBox(height: 12),
+                          Text(
+                            _submitted
+                                ? (_confirmationRequired
+                                    ? 'Confirm your email using the link we sent, then sign in. If you already have an account, sign in instead.'
+                                    : 'Your account is ready. Your gym administrator can now assign your workspace access.')
+                                : 'Join your gym’s workspace with your own secure login.',
+                            textAlign: TextAlign.center,
+                          ),
+                          SizedBox(height: 24),
+                          if (!_submitted) ...[
+                            TextFormField(
+                              controller: _name,
+                              enabled: !_busy,
+                              autofillHints: [AutofillHints.name],
+                              textCapitalization: TextCapitalization.words,
+                              decoration: InputDecoration(
+                                labelText: 'Full name',
+                                prefixIcon: Icon(Icons.person_outline),
                               ),
+                              validator: (value) =>
+                                  (value?.trim().isEmpty ?? true)
+                                      ? 'Enter your full name'
+                                      : null,
                             ),
-                          ),
-                          validator: (value) => (value?.length ?? 0) < 12
-                              ? 'Use at least 12 characters'
-                              : null,
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _confirm,
-                          enabled: !_busy,
-                          obscureText: _obscure,
-                          autofillHints: const [AutofillHints.newPassword],
-                          onFieldSubmitted: (_) {
-                            if (!_busy) _submit();
-                          },
-                          decoration: const InputDecoration(
-                            labelText: 'Confirm password',
-                            prefixIcon: Icon(Icons.lock_outline),
-                          ),
-                          validator: (value) =>
-                              value != _password.text ||
-                                  (value?.isEmpty ?? true)
-                              ? 'Passwords must match'
-                              : null,
-                        ),
-                        const SizedBox(height: 24),
-                        if (_error != null)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: Text(
-                              _error!,
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
+                            SizedBox(height: 16),
+                            TextFormField(
+                              controller: _email,
+                              enabled: !_busy,
+                              autofillHints: [AutofillHints.email],
+                              keyboardType: TextInputType.emailAddress,
+                              decoration: InputDecoration(
+                                labelText: 'Work email',
+                                prefixIcon: Icon(Icons.mail_outline),
                               ),
+                              validator: (value) =>
+                                  RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+                                          .hasMatch(value?.trim() ?? '')
+                                      ? null
+                                      : 'Enter a valid email address',
                             ),
-                          ),
-                        FilledButton(
-                          onPressed: _busy ? null : _submit,
-                          child: _busy
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
+                            SizedBox(height: 16),
+                            TextFormField(
+                              controller: _password,
+                              enabled: !_busy,
+                              obscureText: _obscure,
+                              autofillHints: [AutofillHints.newPassword],
+                              decoration: InputDecoration(
+                                labelText: 'Password',
+                                helperText: 'Use at least 12 characters',
+                                prefixIcon: Icon(Icons.lock_outline),
+                                suffixIcon: IconButton(
+                                  tooltip: _obscure
+                                      ? 'Show password'
+                                      : 'Hide password',
+                                  onPressed: () =>
+                                      setState(() => _obscure = !_obscure),
+                                  icon: Icon(
+                                    _obscure
+                                        ? Icons.visibility_outlined
+                                        : Icons.visibility_off_outlined,
                                   ),
-                                )
-                              : const Text('Create account'),
-                        ),
-                      ],
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Creating an account does not grant gym access. Your gym administrator must assign your workspace and permissions.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF8590A3),
-                        ),
+                                ),
+                              ),
+                              validator: (value) => (value?.length ?? 0) < 12
+                                  ? 'Use at least 12 characters'
+                                  : null,
+                            ),
+                            SizedBox(height: 16),
+                            TextFormField(
+                              controller: _confirm,
+                              enabled: !_busy,
+                              obscureText: _obscure,
+                              autofillHints: [AutofillHints.newPassword],
+                              onFieldSubmitted: (_) {
+                                if (!_busy) _submit();
+                              },
+                              decoration: InputDecoration(
+                                labelText: 'Confirm password',
+                                prefixIcon: Icon(Icons.lock_outline),
+                              ),
+                              validator: (value) => value != _password.text ||
+                                      (value?.isEmpty ?? true)
+                                  ? 'Passwords must match'
+                                  : null,
+                            ),
+                            SizedBox(height: 24),
+                            if (_error != null)
+                              Padding(
+                                padding: EdgeInsets.only(bottom: 16),
+                                child: Text(
+                                  _error!,
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
+                                ),
+                              ),
+                            FilledButton(
+                              onPressed: _busy ? null : _submit,
+                              child: _busy
+                                  ? SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : Text('Create account'),
+                            ),
+                          ],
+                          SizedBox(height: 16),
+                          Text(
+                            'Creating an account does not grant gym access. Your gym administrator must assign your workspace and permissions.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                            ),
+                          ),
+                          SizedBox(height: 12),
+                          TextButton(
+                            onPressed: _busy ? null : widget.onSignIn,
+                            child: Text(
+                              _submitted
+                                  ? 'Back to sign in'
+                                  : 'Already have an account? Sign in',
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 12),
-                      TextButton(
-                        onPressed: _busy ? null : widget.onSignIn,
-                        child: Text(
-                          _submitted
-                              ? 'Back to sign in'
-                              : 'Already have an account? Sign in',
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
         ),
-      ),
-    ),
-  );
+      );
 }

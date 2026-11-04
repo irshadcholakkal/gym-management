@@ -48,11 +48,13 @@ String operationErrorMessage(Object error) {
   if (error is FunctionException) {
     final message =
         error.details is Map ? (error.details as Map)['error'] : null;
-    if (message == 'Username is already in use')
+    if (message == 'Username is already in use') {
       return 'That username is already in use. Choose another.';
+    }
     if (message ==
-        'Invitation sent, but gym access could not be assigned. Contact your administrator for reconciliation.')
+        'Invitation sent, but gym access could not be assigned. Contact your administrator for reconciliation.') {
       return message as String;
+    }
     return error.status == 404
         ? 'Employee invitations are not available yet. Ask the app administrator to deploy the invitation service.'
         : 'The invitation could not be sent. Check the email address or try again later.';

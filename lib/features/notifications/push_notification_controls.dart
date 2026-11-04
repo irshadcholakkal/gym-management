@@ -59,17 +59,19 @@ class _PushNotificationControlsState extends State<PushNotificationControls>
     final current = ++generation;
     try {
       final status = await controller!.status();
-      if (mounted && generation == current)
+      if (mounted && generation == current) {
         setState(() {
           availability = status;
           loading = false;
         });
+      }
     } catch (_) {
-      if (mounted && generation == current)
+      if (mounted && generation == current) {
         setState(() {
           availability = PushAvailability.unknown;
           loading = false;
         });
+      }
     }
   }
 
@@ -84,12 +86,13 @@ class _PushNotificationControlsState extends State<PushNotificationControls>
       } else {
         await controller!.enable();
       }
-      if (mounted)
+      if (mounted) {
         setState(() => message = test
             ? 'Test push sent. Check this device notifications.'
             : 'Push notifications enabled on this device.');
+      }
     } on FunctionException catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() => message = error.status == 404
             ? 'The push test service is not available yet. Ask the app administrator to deploy it.'
             : error.status == 410
@@ -99,11 +102,13 @@ class _PushNotificationControlsState extends State<PushNotificationControls>
                     : error.status == 409
                         ? 'Enable push notifications on this device first.'
                         : 'Could not send the test push. Check your connection and try again.');
+      }
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() => message = test
             ? 'Could not send the test push. Check your connection and try again.'
             : 'Push could not be enabled. ${error.toString()}');
+      }
     } finally {
       await refresh();
       if (mounted) setState(() => busy = false);

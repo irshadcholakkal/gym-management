@@ -111,25 +111,28 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
     final title =
         destinations.where((d) => d.$1 == widget.path).firstOrNull?.$2 ??
             'Overview';
-    final navigation = Container(
+    final navigation = AnimatedContainer(
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
       width: collapsed ? 88 : 244,
-      color: Colors.white,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 30),
+              padding: EdgeInsets.symmetric(horizontal: 22, vertical: 30),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.fitness_center_rounded,
-                    color: GymTheme.sage,
+                    color: Theme.of(context).colorScheme.primary,
                     size: 28,
                   ),
                   if (!collapsed) ...[
-                    const SizedBox(width: 12),
-                    const Expanded(
+                    SizedBox(width: 12),
+                    Expanded(
                       child: Text(
                         'GymPro',
                         style: TextStyle(
@@ -143,14 +146,14 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
               ),
             ),
             if (!collapsed)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.fromLTRB(24, 8, 24, 14),
                 child: Text(
                   'WORKSPACE',
                   style: TextStyle(
                     fontSize: 10,
                     letterSpacing: 2,
-                    color: Color(0xFF8590A3),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
               ),
@@ -159,14 +162,14 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                 children: [
                   for (final d in available)
                     Padding(
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 3,
                       ),
                       child: ListTile(
                         selected: widget.path == d.$1,
-                        selectedTileColor: const Color(0xFFEBF2FF),
-                        selectedColor: GymTheme.sage,
+                        selectedTileColor: GymTheme.lime,
+                        selectedColor: GymTheme.ink,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
@@ -175,7 +178,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                             ? null
                             : Text(
                                 d.$2,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -191,16 +194,17 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
             ),
             if (!collapsed)
               Container(
-                margin: const EdgeInsets.all(16),
-                padding: const EdgeInsets.all(16),
+                margin: EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEBF2FF),
+                  color: Theme.of(context).colorScheme.secondaryContainer,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Column(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.spa_outlined, color: Color(0xFF397DE5)),
+                    Icon(Icons.spa_outlined,
+                        color: Theme.of(context).colorScheme.primary),
                     SizedBox(height: 8),
                     Text(
                       'A little stronger, every day.',
@@ -215,15 +219,15 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                 ),
               ),
             ListTile(
-              leading: const Icon(Icons.logout),
-              title: collapsed ? null : const Text('Sign out'),
+              leading: Icon(Icons.logout),
+              title: collapsed ? null : Text('Sign out'),
               onTap: () async {
                 try {
                   await widget.session.signOut();
                 } catch (_) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
+                      SnackBar(
                         content: Text('Unable to sign out. Try again.'),
                       ),
                     );
@@ -231,7 +235,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                 }
               },
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
           ],
         ),
       ),
@@ -252,15 +256,23 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
         child: BlocProvider.value(
           value: sync,
           child: Scaffold(
-            drawer: wide ? null : Drawer(child: navigation),
+            drawer: wide
+                ? null
+                : Drawer(
+                    child: Material(
+                        color: Theme.of(context).colorScheme.surface,
+                        child: navigation)),
             body: Row(
               children: [
-                if (wide) navigation,
+                if (wide)
+                  Material(
+                      color: Theme.of(context).colorScheme.surface,
+                      child: navigation),
                 Expanded(
                   child: Column(
                     children: [
                       Container(
-                        color: Colors.white,
+                        color: Theme.of(context).colorScheme.surface,
                         padding: EdgeInsets.symmetric(
                           horizontal: wide ? 20 : 8,
                           vertical: wide ? 14 : 4,
@@ -274,7 +286,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                                   tooltip: 'Toggle sidebar',
                                   onPressed: () =>
                                       setState(() => collapsed = !collapsed),
-                                  icon: const Icon(Icons.menu_open),
+                                  icon: Icon(Icons.menu_open),
                                 )
                               else
                                 Builder(
@@ -282,26 +294,29 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                                     tooltip: 'Open navigation',
                                     onPressed: () =>
                                         Scaffold.of(c).openDrawer(),
-                                    icon: const Icon(Icons.menu),
+                                    icon: Icon(Icons.menu),
                                   ),
                                 ),
-                              const SizedBox(width: 12),
+                              SizedBox(width: 12),
                               Expanded(
                                 child: Text(
                                   wide ? widget.access.gymName : title,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
+                              const ThemeSwitcher(),
                               WorkspaceSyncAction(
                                   repository: repository, sync: sync),
-                              const NotificationBell(),
+                              NotificationBell(),
                               SizedBox(width: wide ? 12 : 4),
                               CircleAvatar(
                                 radius: wide ? 20 : 16,
-                                backgroundColor: const Color(0xFFEBF2FF),
+                                backgroundColor: Theme.of(context)
+                                    .colorScheme
+                                    .secondaryContainer,
                                 child: Text(
                                   widget.access.name
                                       .substring(0, 1)
@@ -310,22 +325,24 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                               ),
                               if (wide)
                                 Padding(
-                                  padding: const EdgeInsets.only(left: 12),
+                                  padding: EdgeInsets.only(left: 12),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         widget.access.name,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                       Text(
                                         widget.access.role.name,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 11,
-                                          color: Color(0xFF8590A3),
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
                                         ),
                                       ),
                                     ],
@@ -344,23 +361,28 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                                   children: [
                                     Text(
                                       title == 'Overview'
-                                          ? 'Your gym, at a glance'
+                                          ? 'Your gym. In motion.'
                                           : title,
                                       style: Theme.of(context)
                                           .textTheme
                                           .headlineLarge,
                                     ),
-                                    const SizedBox(height: 6),
+                                    SizedBox(height: 6),
                                     Text(
                                       title == 'Overview'
                                           ? 'A clear view of your community and daily operations.'
                                           : 'Manage your ${title.toLowerCase()} in one place.',
-                                      style: const TextStyle(
-                                        color: Color(0xFF8590A3),
+                                      style: TextStyle(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
                                       ),
                                     ),
-                                    const SizedBox(height: 24),
-                                    Expanded(child: widget.child),
+                                    SizedBox(height: 24),
+                                    Expanded(
+                                        child: PageEntrance(
+                                            key: ValueKey(widget.path),
+                                            child: widget.child)),
                                   ],
                                 ),
                               )
@@ -368,9 +390,10 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                                 top: false,
                                 bottom: false,
                                 child: Padding(
-                                  padding:
-                                      const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                                  child: widget.child,
+                                  padding: EdgeInsets.fromLTRB(12, 8, 12, 0),
+                                  child: PageEntrance(
+                                      key: ValueKey(widget.path),
+                                      child: widget.child),
                                 ),
                               ),
                       ),
@@ -389,7 +412,7 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                             : 0,
                     onDestinationSelected: (i) =>
                         context.go(['/', '/members', '/subscriptions'][i]),
-                    destinations: const [
+                    destinations: [
                       NavigationDestination(
                         icon: Icon(Icons.space_dashboard_outlined),
                         label: 'Overview',
@@ -441,7 +464,7 @@ class WorkspaceSyncAction extends StatelessWidget {
                 isLabelVisible: pending > 0 || status.error != null,
                 label: Text(status.error != null ? '!' : '$pending'),
                 child: status.running
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 22,
                         height: 22,
                         child: CircularProgressIndicator(strokeWidth: 2))
@@ -451,15 +474,15 @@ class WorkspaceSyncAction extends StatelessWidget {
                             : Icons.cloud_done_outlined,
                         color: status.error != null
                             ? Theme.of(context).colorScheme.error
-                            : GymTheme.blue),
+                            : Theme.of(context).colorScheme.primary),
               ),
               itemBuilder: (_) => [
                 PopupMenuItem<String>(enabled: false, child: Text(message)),
                 PopupMenuItem<String>(
                     value: 'sync',
                     enabled: !status.running,
-                    child: const Text('Sync now')),
-                const PopupMenuItem<String>(
+                    child: Text('Sync now')),
+                PopupMenuItem<String>(
                     value: 'center', child: Text('Open sync center')),
               ],
             );
@@ -476,7 +499,7 @@ class WorkspaceContent extends StatelessWidget {
     if (path == '/') return const Dashboard();
     if (path == '/sync') return const SyncCenter();
     if (path == '/settings') return const SettingsPanel();
-    if (path == '/notifications') return const NotificationCenter();
+    if (path == '/notifications') return NotificationCenter();
     final kind = {
       '/members': 'members',
       '/packages': 'membership_packages',
@@ -500,7 +523,7 @@ class Dashboard extends StatelessWidget {
       stream: repo.records,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return const Text(
+          return Text(
             'Local storage is unavailable. Enable browser storage and reload.',
           );
         }
@@ -522,7 +545,7 @@ class Dashboard extends StatelessWidget {
                   (r['paid_minor'] as int? ?? 0) -
                   (r['credit_minor'] as int? ?? 0)),
         );
-        final today = DateTime.now().toUtc().add(const Duration(hours: 4));
+        final today = DateTime.now().toUtc().add(Duration(hours: 4));
         final date = DateTime.utc(today.year, today.month, today.day);
         final reversed = all
             .where((r) => r.kind == 'payment_reversals')
@@ -535,7 +558,7 @@ class Dashboard extends StatelessWidget {
         int collected(bool month) => payments.where((p) {
               final d = DateTime.parse(p['created_at'] as String)
                   .toUtc()
-                  .add(const Duration(hours: 4));
+                  .add(Duration(hours: 4));
               return d.year == today.year &&
                   d.month == today.month &&
                   (month || d.day == today.day);
@@ -545,12 +568,12 @@ class Dashboard extends StatelessWidget {
               (s) =>
                   s['status'] == 'active' &&
                   DateTime.parse(s['end_exclusive'] as String)
-                          .subtract(const Duration(days: 1))
+                          .subtract(Duration(days: 1))
                           .difference(date)
                           .inDays >=
                       0 &&
                   DateTime.parse(s['end_exclusive'] as String)
-                          .subtract(const Duration(days: 1))
+                          .subtract(Duration(days: 1))
                           .difference(date)
                           .inDays <=
                       7,
@@ -575,63 +598,63 @@ class Dashboard extends StatelessWidget {
             'Registered members',
             '${members.length}',
             Icons.people_outline,
-            const Color(0xFFEBF2FF),
+            Theme.of(context).colorScheme.secondaryContainer,
           ),
           (
             'Active memberships',
             '${subscriptions.where((r) => r['status'] == 'active').length}',
             Icons.verified_outlined,
-            const Color(0xFFEBF2FF),
+            Theme.of(context).colorScheme.secondaryContainer,
           ),
           (
             'Paused memberships',
             '${subscriptions.where((r) => r['status'] == 'paused').length}',
             Icons.pause_circle_outline,
-            const Color(0xFFEBF2FF),
+            Theme.of(context).colorScheme.secondaryContainer,
           ),
           if (repo.access.finances)
             (
               'Outstanding balance',
               Money.format(balance),
               Icons.account_balance_wallet_outlined,
-              const Color(0xFFEBF2FF),
+              Theme.of(context).colorScheme.secondaryContainer,
             ),
           (
             'Expired memberships',
             '${subscriptions.where((s) => s['status'] == 'expired').length}',
             Icons.event_busy,
-            const Color(0xFFEBF2FF),
+            Theme.of(context).colorScheme.secondaryContainer,
           ),
           (
             'Expiring within 7 days',
             '$expiring',
             Icons.event_available,
-            const Color(0xFFEBF2FF),
+            Theme.of(context).colorScheme.secondaryContainer,
           ),
           if (repo.access.finances) ...[
             (
               'Discounts given this month',
               Money.format(DiscountTotals.forMonth(invoices, today)),
               Icons.local_offer_outlined,
-              const Color(0xFFEBF2FF),
+              Theme.of(context).colorScheme.secondaryContainer,
             ),
             (
               'Collected today',
               Money.format(collected(false)),
               Icons.payments_outlined,
-              const Color(0xFFEBF2FF),
+              Theme.of(context).colorScheme.secondaryContainer,
             ),
             (
               'Collected this month',
               Money.format(collected(true)),
               Icons.trending_up,
-              const Color(0xFFEBF2FF),
+              Theme.of(context).colorScheme.secondaryContainer,
             ),
             (
               'Overdue balance',
               Money.format(overdue),
               Icons.schedule,
-              const Color(0xFFEBF2FF),
+              Theme.of(context).colorScheme.secondaryContainer,
             ),
           ],
         ];
@@ -650,7 +673,9 @@ class Dashboard extends StatelessWidget {
                                   16 * (box.maxWidth > 1200 ? 3 : 1)) /
                               (box.maxWidth > 1200 ? 4 : 2),
                       child: Card(
-                        color: const Color(0xFFF1F3F6),
+                        color: m == metrics.first
+                            ? Theme.of(context).colorScheme.secondaryContainer
+                            : Theme.of(context).colorScheme.surface,
                         child: Padding(
                           padding: EdgeInsets.all(compact ? 12 : 16),
                           child: Column(
@@ -659,11 +684,14 @@ class Dashboard extends StatelessWidget {
                               Container(
                                 padding: EdgeInsets.all(compact ? 8 : 12),
                                 decoration: BoxDecoration(
-                                  color: GymTheme.softBlue,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .secondaryContainer,
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                                 child: Icon(m.$3,
-                                    color: GymTheme.blue,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
                                     size: compact ? 18 : 24),
                               ),
                               SizedBox(height: compact ? 12 : 20),
@@ -672,11 +700,13 @@ class Dashboard extends StatelessWidget {
                                 style:
                                     Theme.of(context).textTheme.headlineSmall,
                               ),
-                              const SizedBox(height: 6),
+                              SizedBox(height: 6),
                               Text(
                                 m.$1,
-                                style: const TextStyle(
-                                  color: Color(0xFF8590A3),
+                                style: TextStyle(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
                                 ),
                               ),
                             ],
@@ -687,10 +717,10 @@ class Dashboard extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             if (repo.access.finances) ...[
               CollectionChart(payments: payments, today: today),
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
             ],
             Card(
               child: Padding(
@@ -700,7 +730,7 @@ class Dashboard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: Text(
                             'Recent registrations',
                             style: TextStyle(
@@ -711,11 +741,11 @@ class Dashboard extends StatelessWidget {
                         ),
                         TextButton(
                           onPressed: () => context.go('/members'),
-                          child: const Text('View all'),
+                          child: Text('View all'),
                         ),
                       ],
                     ),
-                    const Divider(height: 32),
+                    Divider(height: 32),
                     if (members.isEmpty)
                       const EmptyPanel(
                         icon: Icons.people_outline,
@@ -728,8 +758,10 @@ class Dashboard extends StatelessWidget {
                         final m = jsonDecode(r.payload) as Map;
                         return ListTile(
                           contentPadding: EdgeInsets.zero,
-                          leading: const CircleAvatar(
-                            backgroundColor: Color(0xFFEBF2FF),
+                          leading: CircleAvatar(
+                            backgroundColor: Theme.of(context)
+                                .colorScheme
+                                .secondaryContainer,
                             child: Icon(Icons.person_outline),
                           ),
                           title: Text(m['full_name'] as String),
@@ -747,25 +779,25 @@ class Dashboard extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: EdgeInsets.all(24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Make room for what matters',
+                    Text(
+                      'Your next move',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
+                    SizedBox(height: 8),
+                    Text(
                       'Keep your members, memberships, and collections connected.',
                     ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20),
                     Wrap(
                       spacing: 12,
                       runSpacing: 12,
@@ -774,19 +806,19 @@ class Dashboard extends StatelessWidget {
                           FilledButton.icon(
                             onPressed: () =>
                                 showRecordEditor(context, 'members'),
-                            icon: const Icon(Icons.person_add_alt),
-                            label: const Text('Add member'),
+                            icon: Icon(Icons.person_add_alt),
+                            label: Text('Add member'),
                           ),
                         if (repo.access.administer)
                           OutlinedButton.icon(
                             onPressed: () => context.go('/packages'),
-                            icon: const Icon(Icons.inventory_2_outlined),
-                            label: const Text('Manage packages'),
+                            icon: Icon(Icons.inventory_2_outlined),
+                            label: Text('Manage packages'),
                           ),
                         OutlinedButton.icon(
                           onPressed: () => context.go('/sync'),
-                          icon: const Icon(Icons.cloud_sync_outlined),
-                          label: const Text('Review sync activity'),
+                          icon: Icon(Icons.cloud_sync_outlined),
+                          label: Text('Review sync activity'),
                         ),
                       ],
                     ),
@@ -794,10 +826,12 @@ class Dashboard extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            const Text(
+            SizedBox(height: 16),
+            Text(
               'Unsynchronized changes are stored on this device. Clearing browser storage removes them. Sync resumes while the application is open.',
-              style: TextStyle(fontSize: 12, color: Color(0xFF8590A3)),
+              style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
           ],
         );
@@ -817,23 +851,24 @@ class EmptyPanel extends StatelessWidget {
   final String title, message;
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 16),
+        padding: EdgeInsets.symmetric(vertical: 40, horizontal: 16),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 40, color: GymTheme.sage),
-              const SizedBox(height: 16),
+              Icon(icon,
+                  size: 40, color: Theme.of(context).colorScheme.primary),
+              SizedBox(height: 16),
               Text(
                 title,
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Text(
                 message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Color(0xFF8590A3)),
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
             ],
           ),
@@ -858,7 +893,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
   @override
   void initState() {
     super.initState();
-    _statusTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+    _statusTimer = Timer.periodic(Duration(minutes: 1), (_) {
       if (mounted && widget.kind == 'subscriptions') setState(() {});
     });
   }
@@ -901,8 +936,8 @@ class _RecordDirectoryState extends State<RecordDirectory> {
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
                 onPressed: () => context.go(GoRouterState.of(context).uri.path),
-                icon: const Icon(Icons.arrow_back),
-                label: const Text('Show all records'),
+                icon: Icon(Icons.arrow_back),
+                label: Text('Show all records'),
               ),
             ),
           Row(
@@ -913,7 +948,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                   autofocus: false,
                   onChanged: (value) {
                     _searchTimer?.cancel();
-                    _searchTimer = Timer(const Duration(milliseconds: 180), () {
+                    _searchTimer = Timer(Duration(milliseconds: 180), () {
                       if (!mounted) return;
                       setState(() {
                         query = value.toLowerCase();
@@ -921,13 +956,13 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                       });
                     });
                   },
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'Search records…',
                     prefixIcon: Icon(Icons.search),
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
+              SizedBox(width: 4),
               PopupMenuButton<String>(
                 tooltip: filter == 'all'
                     ? 'Filter records'
@@ -936,7 +971,9 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                     isLabelVisible: filter != 'all',
                     smallSize: 6,
                     child: Icon(Icons.filter_list_rounded,
-                        color: filter == 'all' ? null : GymTheme.blue)),
+                        color: filter == 'all'
+                            ? null
+                            : Theme.of(context).colorScheme.primary)),
                 initialValue: filter,
                 itemBuilder: (_) => [
                   for (final status in (kind == 'subscriptions'
@@ -969,19 +1006,19 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                 IconButton.filled(
                   tooltip: kind == 'members' ? 'Add member' : 'Create package',
                   onPressed: () => showRecordEditor(context, kind),
-                  icon: const Icon(Icons.add),
+                  icon: Icon(Icons.add),
                 ),
               if (kind == 'subscriptions' && repo.access.finances)
                 IconButton.filled(
                   tooltip: 'Create membership',
                   onPressed: () => showServerOperation(context, 'subscribe'),
-                  icon: const Icon(Icons.add),
+                  icon: Icon(Icons.add),
                 ),
               if (kind == 'employees' && repo.access.administer)
                 IconButton.filled(
                   tooltip: 'Invite employee',
                   onPressed: () => showServerOperation(context, 'invite'),
-                  icon: const Icon(Icons.person_add_alt),
+                  icon: Icon(Icons.person_add_alt),
                 ),
               if (kind == 'notifications')
                 IconButton(
@@ -989,7 +1026,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                   onPressed: () async {
                     try {
                       final subscription = await subscribePush(
-                        const String.fromEnvironment('VAPID_PUBLIC_KEY'),
+                        String.fromEnvironment('VAPID_PUBLIC_KEY'),
                       );
                       if (!context.mounted) return;
                       await context.read<OperationsRepository>().registerPush(
@@ -997,7 +1034,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                           );
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
+                          SnackBar(
                             content: Text(
                               'Browser push enabled for this workspace.',
                             ),
@@ -1007,7 +1044,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                     } catch (_) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
+                          SnackBar(
                             content: Text(
                               'Push is unavailable, unconfigured, or permission was denied. In-app reminders remain available.',
                             ),
@@ -1016,22 +1053,22 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                       }
                     }
                   },
-                  icon: const Icon(Icons.notifications_active_outlined),
+                  icon: Icon(Icons.notifications_active_outlined),
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Expanded(
             child: StreamBuilder<List<CachedRecord>>(
               stream: repo.records,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return const Text(
+                  return Text(
                     'Unable to open local storage. Check browser storage permissions.',
                   );
                 }
                 if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
+                  return Center(child: CircularProgressIndicator());
                 }
                 if (!identical(_labelRecords, snapshot.data)) {
                   _labelRecords = snapshot.data;
@@ -1091,7 +1128,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                         child: ListView.separated(
                           itemCount: records.skip(start).take(15).length,
                           separatorBuilder: (context, index) =>
-                              const Divider(height: 1),
+                              Divider(height: 1),
                           itemBuilder: (context, i) {
                             final r = records[start + i],
                                 m = labels.lookup(kind, r.id);
@@ -1108,7 +1145,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                     tooltip: 'Manage access',
                                     onPressed: () =>
                                         showEmployeeAccess(context, r),
-                                    icon: const Icon(
+                                    icon: Icon(
                                         Icons.admin_panel_settings_outlined)),
                               if (m['price_minor'] != null)
                                 Text(
@@ -1117,16 +1154,20 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                     m['currency'] as String? ?? 'AED',
                                   ),
                                 ),
-                              const SizedBox(width: 8),
+                              SizedBox(width: 8),
                               Chip(
                                 backgroundColor: switch (membership?.status) {
-                                  'expired' ||
-                                  'cancelled' =>
-                                    const Color(0xFFFFE0E0),
+                                  'expired' || 'cancelled' => Theme.of(context)
+                                      .colorScheme
+                                      .errorContainer,
                                   'paused' ||
                                   'expiring_soon' =>
-                                    const Color(0xFFFFEBC2),
-                                  'active' => const Color(0xFFDFF3E5),
+                                    Theme.of(context)
+                                        .colorScheme
+                                        .secondaryContainer,
+                                  'active' => Theme.of(context)
+                                      .colorScheme
+                                      .secondaryContainer,
                                   _ => null,
                                 },
                                 label: Text(
@@ -1141,7 +1182,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                               if (membership != null && repo.access.finances)
                                 IconButton(
                                   tooltip: 'WhatsApp message',
-                                  icon: const Icon(Icons.chat_outlined),
+                                  icon: Icon(Icons.chat_outlined),
                                   onPressed: () => showMembershipWhatsApp(
                                     context,
                                     subscription: m,
@@ -1159,7 +1200,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                   onPressed: () => showRecordEditor(
                                       context, kind,
                                       record: r),
-                                  icon: const Icon(Icons.edit_outlined),
+                                  icon: Icon(Icons.edit_outlined),
                                 ),
                               if (kind == 'subscriptions' &&
                                   repo.access.finances)
@@ -1174,7 +1215,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                             'subscribe',
                                             record: r,
                                           ),
-                                  icon: const Icon(Icons.autorenew),
+                                  icon: Icon(Icons.autorenew),
                                 ),
                               if (kind == 'subscriptions' &&
                                   repo.access.finances)
@@ -1185,7 +1226,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                     'transition',
                                     record: r,
                                   ),
-                                  icon: const Icon(Icons.more_horiz),
+                                  icon: Icon(Icons.more_horiz),
                                 ),
                               if (kind == 'invoices' &&
                                   repo.access.finances &&
@@ -1197,7 +1238,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                     'pay',
                                     record: r,
                                   ),
-                                  icon: const Icon(Icons.add_card),
+                                  icon: Icon(Icons.add_card),
                                 ),
                               if (kind == 'subscriptions' &&
                                   repo.access.finances)
@@ -1208,7 +1249,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                     r,
                                     packageChange: true,
                                   ),
-                                  icon: const Icon(Icons.swap_horiz),
+                                  icon: Icon(Icons.swap_horiz),
                                 ),
                               if (kind == 'employees' &&
                                   repo.access.administer &&
@@ -1220,7 +1261,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                     r,
                                     deactivate: true,
                                   ),
-                                  icon: const Icon(Icons.person_off_outlined),
+                                  icon: Icon(Icons.person_off_outlined),
                                 ),
                               if (kind == 'receipts')
                                 IconButton(
@@ -1263,7 +1304,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                       if (context.mounted) {
                                         ScaffoldMessenger.of(context)
                                             .showSnackBar(
-                                          const SnackBar(
+                                          SnackBar(
                                             content: Text(
                                               'Unable to verify receipt. Reconnect and try again.',
                                             ),
@@ -1272,8 +1313,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                       }
                                     }
                                   },
-                                  icon:
-                                      const Icon(Icons.picture_as_pdf_outlined),
+                                  icon: Icon(Icons.picture_as_pdf_outlined),
                                 ),
                               if (kind == 'receipts' &&
                                   repo.access.administer &&
@@ -1281,7 +1321,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                 IconButton(
                                   tooltip: 'Reverse payment',
                                   onPressed: () => showAdjustment(context, r),
-                                  icon: const Icon(Icons.undo),
+                                  icon: Icon(Icons.undo),
                                 ),
                               if (kind == 'notifications' &&
                                   m['read_at'] == null)
@@ -1299,7 +1339,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                       if (context.mounted) {
                                         ScaffoldMessenger.of(context)
                                             .showSnackBar(
-                                          const SnackBar(
+                                          SnackBar(
                                             content: Text(
                                               'Unable to mark notification read. Retry when connected.',
                                             ),
@@ -1308,29 +1348,31 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                       }
                                     }
                                   },
-                                  icon: const Icon(Icons.done),
+                                  icon: Icon(Icons.done),
                                 ),
                             ];
                             final tile = ListTile(
                               contentPadding: EdgeInsets.symmetric(
                                   horizontal: compact ? 12 : 20,
                                   vertical: compact ? 2 : 8),
-                              leading: kind == 'members' &&
-                                      widget.photos != null
-                                  ? MemberPhoto(
-                                      photos: widget.photos!,
-                                      path: m['profile_image'] as String?,
-                                      size: compact ? 34 : 44,
-                                    )
-                                  : CircleAvatar(
-                                      radius: compact ? 16 : 20,
-                                      backgroundColor: const Color(0xFFEBF2FF),
-                                      child: Icon(
-                                        kind == 'members'
-                                            ? Icons.person_outline
-                                            : Icons.inventory_2_outlined,
-                                      ),
-                                    ),
+                              leading:
+                                  kind == 'members' && widget.photos != null
+                                      ? MemberPhoto(
+                                          photos: widget.photos!,
+                                          path: m['profile_image'] as String?,
+                                          size: compact ? 34 : 44,
+                                        )
+                                      : CircleAvatar(
+                                          radius: compact ? 16 : 20,
+                                          backgroundColor: Theme.of(context)
+                                              .colorScheme
+                                              .secondaryContainer,
+                                          child: Icon(
+                                            kind == 'members'
+                                                ? Icons.person_outline
+                                                : Icons.inventory_2_outlined,
+                                          ),
+                                        ),
                               title: Text(labels.title(kind, m)),
                               subtitle: Text(
                                 [
@@ -1364,7 +1406,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                   actions: [
                                     TextButton(
                                       onPressed: () => Navigator.pop(context),
-                                      child: const Text('Close'),
+                                      child: Text('Close'),
                                     ),
                                   ],
                                 ),
@@ -1379,7 +1421,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                         action is! IconButton &&
                                         action is! SizedBox))
                                   Padding(
-                                    padding: const EdgeInsets.fromLTRB(
+                                    padding: EdgeInsets.fromLTRB(
                                       16,
                                       0,
                                       16,
@@ -1403,7 +1445,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                           },
                         ),
                       ),
-                      const Divider(height: 1),
+                      Divider(height: 1),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
@@ -1419,14 +1461,14 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                             tooltip: 'Previous page',
                             onPressed:
                                 page == 0 ? null : () => setState(() => page--),
-                            icon: const Icon(Icons.chevron_left),
+                            icon: Icon(Icons.chevron_left),
                           ),
                           IconButton(
                             tooltip: 'Next page',
                             onPressed: start + 15 >= records.length
                                 ? null
                                 : () => setState(() => page++),
-                            icon: const Icon(Icons.chevron_right),
+                            icon: Icon(Icons.chevron_right),
                           ),
                         ],
                       ),
@@ -1497,7 +1539,7 @@ Future<void> showRecordEditor(
                 children: [
                   for (final f in fields)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 14),
+                      padding: EdgeInsets.only(bottom: 14),
                       child: TextFormField(
                         controller: controllers[f],
                         decoration: InputDecoration(
@@ -1560,7 +1602,7 @@ Future<void> showRecordEditor(
                   if (!member)
                     DropdownButtonFormField<String>(
                       initialValue: unit,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Duration unit',
                       ),
                       items: [
@@ -1572,10 +1614,10 @@ Future<void> showRecordEditor(
                       ],
                       onChanged: (v) => unit = v!,
                     ),
-                  const SizedBox(height: 14),
+                  SizedBox(height: 14),
                   DropdownButtonFormField<String>(
                     initialValue: status,
-                    decoration: const InputDecoration(labelText: 'Status'),
+                    decoration: InputDecoration(labelText: 'Status'),
                     items: [
                       for (final s in ['active', 'inactive', 'archived'])
                         DropdownMenuItem(
@@ -1587,10 +1629,10 @@ Future<void> showRecordEditor(
                   ),
                   if (error != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 12),
+                      padding: EdgeInsets.only(top: 12),
                       child: Text(
                         error!,
-                        style: const TextStyle(color: Colors.red),
+                        style: TextStyle(color: Colors.red),
                       ),
                     ),
                 ],
@@ -1601,7 +1643,7 @@ Future<void> showRecordEditor(
         actions: [
           TextButton(
             onPressed: busy ? null : () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
+            child: Text('Cancel'),
           ),
           FilledButton(
             onPressed: busy
@@ -1626,7 +1668,7 @@ Future<void> showRecordEditor(
                         values['joining_date'] = data['joining_date'] ??
                             DateTime.now()
                                 .toUtc()
-                                .add(const Duration(hours: 4))
+                                .add(Duration(hours: 4))
                                 .toIso8601String()
                                 .substring(0, 10);
                       } else {
@@ -1681,10 +1723,10 @@ class RecordActionsMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final buttons = actions.whereType<IconButton>().toList();
-    if (buttons.isEmpty) return const SizedBox.shrink();
+    if (buttons.isEmpty) return SizedBox.shrink();
     return PopupMenuButton<int>(
       tooltip: 'Record actions',
-      icon: const Icon(Icons.more_horiz, size: 20),
+      icon: Icon(Icons.more_horiz, size: 20),
       onSelected: (index) => buttons[index].onPressed?.call(),
       itemBuilder: (_) => [
         for (var i = 0; i < buttons.length; i++)
@@ -1693,7 +1735,7 @@ class RecordActionsMenu extends StatelessWidget {
               enabled: buttons[i].onPressed != null,
               child: Row(children: [
                 buttons[i].icon,
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Flexible(child: Text(buttons[i].tooltip ?? 'Open'))
               ]))
       ],
@@ -1711,7 +1753,7 @@ class SyncCenter extends StatelessWidget {
       builder: (context, snapshot) {
         final ops = snapshot.data ?? [];
         if (ops.isEmpty) {
-          return const Card(
+          return Card(
             child: EmptyPanel(
               icon: Icons.cloud_done_outlined,
               title: 'All caught up',
@@ -1721,10 +1763,10 @@ class SyncCenter extends StatelessWidget {
         }
         return ListView(
           children: [
-            const Text(
+            Text(
               'Conflicts retain your local change. Review the server version before discarding it. Financial changes always require server authorization.',
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             for (final op in ops)
               Card(
                 child: ListTile(
@@ -1764,7 +1806,7 @@ class SyncCenter extends StatelessWidget {
                             } catch (_) {
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
+                                  SnackBar(
                                     content: Text(
                                       'Cannot confirm this operation while disconnected.',
                                     ),
@@ -1773,7 +1815,7 @@ class SyncCenter extends StatelessWidget {
                               }
                             }
                           },
-                          child: const Text('Check confirmation'),
+                          child: Text('Check confirmation'),
                         )
                       : op.state == 'conflict' || op.state == 'approval'
                           ? TextButton(
@@ -1781,7 +1823,7 @@ class SyncCenter extends StatelessWidget {
                                 final discard = await showDialog<bool>(
                                   context: context,
                                   builder: (context) => AlertDialog(
-                                    title: const Text('Discard local change?'),
+                                    title: Text('Discard local change?'),
                                     content: SingleChildScrollView(
                                       child: SelectableText(
                                         'Local change:\n${op.payload}\n\nThe server record will be fetched again. This discards only the uncommitted local operation.',
@@ -1791,12 +1833,12 @@ class SyncCenter extends StatelessWidget {
                                       TextButton(
                                         onPressed: () =>
                                             Navigator.pop(context, false),
-                                        child: const Text('Keep local change'),
+                                        child: Text('Keep local change'),
                                       ),
                                       FilledButton(
                                         onPressed: () =>
                                             Navigator.pop(context, true),
-                                        child: const Text(
+                                        child: Text(
                                           'Discard and fetch server',
                                         ),
                                       ),
@@ -1829,11 +1871,11 @@ class SyncCenter extends StatelessWidget {
                                   await context.read<SyncEngine>().sync();
                                 }
                               },
-                              child: const Text('Resolve'),
+                              child: Text('Resolve'),
                             )
                           : TextButton(
                               onPressed: () => repo.retry(op.id),
-                              child: const Text('Retry'),
+                              child: Text('Retry'),
                             ),
                 ),
               ),
@@ -1851,15 +1893,15 @@ class SettingsPanel extends StatelessWidget {
     final access = context.read<WorkspaceRepository>().access;
     return ListView(
       children: [
-        const ReceiptDesignCard(),
-        const SizedBox(height: 16),
-        const PushNotificationSettingsCard(),
-        const SizedBox(height: 16),
-        const InstallAppCard(),
-        const SizedBox(height: 20),
+        ReceiptDesignCard(),
+        SizedBox(height: 16),
+        PushNotificationSettingsCard(),
+        SizedBox(height: 16),
+        InstallAppCard(),
+        SizedBox(height: 20),
         Card(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1867,20 +1909,20 @@ class SettingsPanel extends StatelessWidget {
                   access.gymName,
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
-                const SizedBox(height: 20),
-                const ListTile(
+                SizedBox(height: 20),
+                ListTile(
                   leading: Icon(Icons.payments_outlined),
                   title: Text('Default currency'),
                   subtitle: Text('AED · stored as integer fils'),
                 ),
-                const ListTile(
+                ListTile(
                   leading: Icon(Icons.schedule),
                   title: Text('Default timezone'),
                   subtitle: Text(
                     'Asia/Dubai · membership boundaries use calendar dates',
                   ),
                 ),
-                const ListTile(
+                ListTile(
                   leading: Icon(Icons.security),
                   title: Text('Offline security'),
                   subtitle: Text(

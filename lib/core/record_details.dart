@@ -63,17 +63,18 @@ class RecordDetails extends StatelessWidget {
               StreamBuilder<List<CachedRecord>>(
                 stream: (repository.db.select(
                   repository.db.cachedRecords,
-                )..where((r) => r.scope.equals(repository.scope))).watch(),
+                )..where((r) => r.scope.equals(repository.scope)))
+                    .watch(),
                 builder: (context, snapshot) {
                   final labels = RecordLabels(snapshot.data ?? []);
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
+                    padding: EdgeInsets.only(bottom: 16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           labels.member(m),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
                           ),
@@ -87,7 +88,7 @@ class RecordDetails extends StatelessWidget {
             for (final e in labels.entries)
               if (m[e.key] != null && m[e.key].toString().isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: EdgeInsets.only(bottom: 12),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -95,7 +96,10 @@ class RecordDetails extends StatelessWidget {
                         width: 150,
                         child: Text(
                           e.value,
-                          style: const TextStyle(color: Color(0xFF8590A3)),
+                          style: TextStyle(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant),
                         ),
                       ),
                       Expanded(
@@ -111,10 +115,10 @@ class RecordDetails extends StatelessWidget {
             if (m['end_exclusive'] != null)
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Final valid membership day'),
+                title: Text('Final valid membership day'),
                 subtitle: Text(
                   DateTime.parse(m['end_exclusive'] as String)
-                      .subtract(const Duration(days: 1))
+                      .subtract(Duration(days: 1))
                       .toIso8601String()
                       .substring(0, 10),
                 ),
@@ -137,7 +141,8 @@ class RecordDetails extends StatelessWidget {
               StreamBuilder<List<CachedRecord>>(
                 stream: (repository.db.select(
                   repository.db.cachedRecords,
-                )..where((r) => r.scope.equals(repository.scope))).watch(),
+                )..where((r) => r.scope.equals(repository.scope)))
+                    .watch(),
                 builder: (context, snapshot) {
                   final related = (snapshot.data ?? []).where((r) {
                     final value = jsonDecode(r.payload) as Map;
@@ -149,8 +154,8 @@ class RecordDetails extends StatelessWidget {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Divider(height: 32),
-                      const Text(
+                      Divider(height: 32),
+                      Text(
                         'Membership & payment history',
                         style: TextStyle(
                           fontSize: 18,
@@ -158,7 +163,7 @@ class RecordDetails extends StatelessWidget {
                         ),
                       ),
                       if (related.isEmpty)
-                        const Padding(
+                        Padding(
                           padding: EdgeInsets.symmetric(vertical: 20),
                           child: Text(
                             'No synchronized history for this member.',

@@ -32,12 +32,12 @@ Future<void> showServerOperation(
       : jsonDecode(record.payload) as Map<String, dynamic>;
   final renewal = type == 'subscribe' && record?.kind == 'subscriptions';
   final operation =
-      const Uuid().v4(); // Retained across uncertain retries in this dialog.
+      Uuid().v4(); // Retained across uncertain retries in this dialog.
   final form = GlobalKey<FormState>();
   final date = TextEditingController(
     text: DateTime.now()
         .toUtc()
-        .add(const Duration(hours: 4))
+        .add(Duration(hours: 4))
         .toIso8601String()
         .substring(0, 10),
   );
@@ -137,11 +137,11 @@ Future<void> showServerOperation(
                                 ? 'Send a secure invitation to join your gym.'
                                 : 'Choose the membership action and effective date.',
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
                   if (type == 'subscribe') ...[
                     DropdownButtonFormField<String>(
                       initialValue: member,
-                      decoration: const InputDecoration(labelText: 'Member'),
+                      decoration: InputDecoration(labelText: 'Member'),
                       items: [
                         for (final r in members)
                           DropdownMenuItem(
@@ -158,10 +158,10 @@ Future<void> showServerOperation(
                       validator: (v) =>
                           v == null ? 'Select a synced member' : null,
                     ),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     DropdownButtonFormField<String>(
                       initialValue: package,
-                      decoration: const InputDecoration(labelText: 'Package'),
+                      decoration: InputDecoration(labelText: 'Package'),
                       items: [
                         for (final r in packages.where(
                           (p) =>
@@ -180,13 +180,13 @@ Future<void> showServerOperation(
                       validator: (v) =>
                           v == null ? 'Select an active synced package' : null,
                     ),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     if (repo.access.canDiscount) ...[
                       TextFormField(
                         controller: discount,
                         autovalidateMode: AutovalidateMode.onUserInteraction,
                         enabled: !attempted,
-                        keyboardType: const TextInputType.numberWithOptions(
+                        keyboardType: TextInputType.numberWithOptions(
                           decimal: true,
                         ),
                         decoration: InputDecoration(
@@ -211,20 +211,20 @@ Future<void> showServerOperation(
                           }
                         },
                       ),
-                      const SizedBox(height: 14),
+                      SizedBox(height: 14),
                       if (discountValue() > 0) ...[
                         TextFormField(
                           controller: discountReason,
                           enabled: !attempted,
                           maxLength: 500,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: 'Discount reason',
                           ),
                           validator: (v) => (v?.trim().isEmpty ?? true)
                               ? 'Enter a reason for this discount'
                               : null,
                         ),
-                        const SizedBox(height: 14),
+                        SizedBox(height: 14),
                       ],
                     ],
                     if (package != null &&
@@ -232,9 +232,10 @@ Future<void> showServerOperation(
                             (selectedPackage()['price_minor'] as int? ?? 0))
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.all(14),
+                        padding: EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEBF2FF),
+                          color:
+                              Theme.of(context).colorScheme.secondaryContainer,
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Column(
@@ -255,17 +256,17 @@ Future<void> showServerOperation(
                               Text(
                                 'Tax: ${Money.format(quote().taxMinor, selectedPackage()['currency'] as String? ?? 'AED')}',
                               ),
-                            const SizedBox(height: 6),
+                            SizedBox(height: 6),
                             Text(
                               'Total due: ${Money.format(quote().totalMinor, selectedPackage()['currency'] as String? ?? 'AED')}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
                           ],
                         ),
                       ),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                   ],
                   if (type == 'subscribe' || type == 'transition')
                     TextFormField(
@@ -286,10 +287,10 @@ Future<void> showServerOperation(
                       },
                     ),
                   if (type == 'transition') ...[
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     DropdownButtonFormField<String>(
                       initialValue: action,
-                      decoration: const InputDecoration(labelText: 'Action'),
+                      decoration: InputDecoration(labelText: 'Action'),
                       items: [
                         for (final a in [
                           'pause',
@@ -304,21 +305,21 @@ Future<void> showServerOperation(
                       onChanged:
                           attempted ? null : (v) => update(() => action = v!),
                     ),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     TextFormField(
                       controller: reason,
                       enabled: !attempted,
-                      decoration: const InputDecoration(labelText: 'Reason'),
+                      decoration: InputDecoration(labelText: 'Reason'),
                       validator: (v) => (v?.trim().isEmpty ?? true)
                           ? 'A reason is required'
                           : null,
                     ),
                     if (action == 'extend') ...[
-                      const SizedBox(height: 14),
+                      SizedBox(height: 14),
                       TextFormField(
                         controller: amount,
                         enabled: !attempted,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Extension days',
                         ),
                         validator: (v) => (int.tryParse(v ?? '') ?? 0) <= 0
@@ -331,11 +332,11 @@ Future<void> showServerOperation(
                     Text(
                       'Outstanding: ${Money.format((values['total_minor'] as int) - (values['paid_minor'] as int) - (values['credit_minor'] as int? ?? 0), values['currency'] as String)}',
                     ),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     TextFormField(
                       controller: amount,
                       enabled: !attempted,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Amount received',
                       ),
                       validator: (v) {
@@ -349,10 +350,10 @@ Future<void> showServerOperation(
                         }
                       },
                     ),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     DropdownButtonFormField<String>(
                       initialValue: method,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Payment method',
                       ),
                       items: [
@@ -372,11 +373,11 @@ Future<void> showServerOperation(
                       ],
                       onChanged: attempted ? null : (v) => method = v!,
                     ),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     TextFormField(
                       controller: reason,
                       enabled: !attempted,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Payment reference (optional)',
                       ),
                     ),
@@ -384,30 +385,30 @@ Future<void> showServerOperation(
                   if (type == 'invite') ...[
                     TextFormField(
                       controller: name,
-                      decoration: const InputDecoration(labelText: 'Full name'),
+                      decoration: InputDecoration(labelText: 'Full name'),
                       validator: (v) =>
                           v == null || v.trim().isEmpty ? 'Enter a name' : null,
                     ),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     TextFormField(
                       controller: email,
-                      decoration: const InputDecoration(labelText: 'Email'),
+                      decoration: InputDecoration(labelText: 'Email'),
                       validator: (v) => RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
                               .hasMatch(v ?? '')
                           ? null
                           : 'Enter a valid email',
                     ),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     TextFormField(
                       controller: phone,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Phone (+country code)',
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     DropdownButtonFormField<String>(
                       initialValue: role,
-                      decoration: const InputDecoration(labelText: 'Role'),
+                      decoration: InputDecoration(labelText: 'Role'),
                       items: [
                         for (final r in [
                           'admin',
@@ -428,14 +429,14 @@ Future<void> showServerOperation(
                     ),
                   ],
                   if (type == 'invite') ...[
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     EmployeeRoleSummary(role: GymRole.values.byName(role)),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     TextFormField(
                         controller: username,
                         autocorrect: false,
-                        decoration: const InputDecoration(
-                            labelText: 'Username (optional)'),
+                        decoration:
+                            InputDecoration(labelText: 'Username (optional)'),
                         validator: (value) {
                           final text = (value ?? '').trim().toLowerCase();
                           return text.isEmpty ||
@@ -471,16 +472,16 @@ Future<void> showServerOperation(
                                 : (value) => update(() =>
                                     employeeOptions[option.key] = value!));
                       }),
-                    const SizedBox(height: 8),
-                    const Text(
+                    SizedBox(height: 8),
+                    Text(
                         'The employee will receive an email to set their password. They can then sign in with their username, employee ID or email.'),
                   ],
                   if (error != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 16),
+                      padding: EdgeInsets.only(top: 16),
                       child: Text(
                         error!,
-                        style: const TextStyle(color: Colors.red),
+                        style: TextStyle(color: Colors.red),
                       ),
                     ),
                 ],
@@ -491,7 +492,7 @@ Future<void> showServerOperation(
         actions: [
           TextButton(
             onPressed: busy ? null : () => Navigator.pop(dialogContext),
-            child: const Text('Close'),
+            child: Text('Close'),
           ),
           FilledButton(
             onPressed: busy

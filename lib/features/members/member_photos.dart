@@ -21,12 +21,11 @@ class MemberPhotos {
     if (cached != null && cached.expires.isAfter(DateTime.now())) {
       return cached.url;
     }
-    final url = await client.storage
-        .from('member-photos')
-        .createSignedUrl(path, 300);
+    final url =
+        await client.storage.from('member-photos').createSignedUrl(path, 300);
     _urls[path] = (
       url: url,
-      expires: DateTime.now().add(const Duration(minutes: 4)),
+      expires: DateTime.now().add(Duration(minutes: 4)),
     );
     return url;
   }
@@ -38,19 +37,17 @@ class MemberPhotos {
     }
     final access = repository.access;
     final path =
-        '${access.gymId}/${member.id}/${access.userId}/${const Uuid().v4()}.jpg';
-    await client.storage
-        .from('member-photos')
-        .uploadBinary(
+        '${access.gymId}/${member.id}/${access.userId}/${Uuid().v4()}.jpg';
+    await client.storage.from('member-photos').uploadBinary(
           path,
           bytes,
-          fileOptions: const FileOptions(
+          fileOptions: FileOptions(
             contentType: 'image/jpeg',
             cacheControl: '300',
           ),
         );
     // Retry the same operation after an uncertain response, preserving idempotency.
-    final operation = const Uuid().v4();
+    final operation = Uuid().v4();
     Map<String, dynamic>? result;
     for (var attempt = 0; attempt < 2; attempt++) {
       try {
@@ -78,14 +75,14 @@ class MemberPhotos {
     }
     final saved = result!;
     await repository.db.transaction(() async {
-      final current =
-          await (repository.db.select(repository.db.cachedRecords)..where(
-                (r) =>
-                    r.scope.equals(repository.scope) &
-                    r.kind.equals('members') &
-                    r.id.equals(member.id),
-              ))
-              .getSingleOrNull();
+      final current = await (repository.db.select(repository.db.cachedRecords)
+            ..where(
+              (r) =>
+                  r.scope.equals(repository.scope) &
+                  r.kind.equals('members') &
+                  r.id.equals(member.id),
+            ))
+          .getSingleOrNull();
       final pending = current != null && current.syncState != 'synced';
       await repository.db
           .into(repository.db.cachedRecords)
@@ -131,7 +128,7 @@ class MemberPhoto extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final placeholder = Container(
-      color: const Color(0xFFEBF2FF),
+      color: Theme.of(context).colorScheme.secondaryContainer,
       alignment: Alignment.center,
       child: Icon(Icons.person_outline, size: size * .55),
     );
@@ -190,7 +187,7 @@ class _MemberPhotoEditorState extends State<MemberPhotoEditor> {
         return;
       }
       if (await file.length() > 12 * 1024 * 1024) {
-        throw const FormatException('Choose a photo smaller than 12 MB.');
+        throw FormatException('Choose a photo smaller than 12 MB.');
       }
       if (mounted) setState(() => message = 'Optimizing photo…');
       final bytes = await compute(
@@ -212,7 +209,8 @@ class _MemberPhotoEditorState extends State<MemberPhotoEditor> {
             StateError e => e.message,
             PostgrestException e when e.code == '40001' =>
               'Member changed. Sync, reopen the details and retry.',
-            _ => 'Photo could not be confirmed. Check your connection, sync and try again.',
+            _ =>
+              'Photo could not be confirmed. Check your connection, sync and try again.',
           },
         );
       }
@@ -223,45 +221,46 @@ class _MemberPhotoEditorState extends State<MemberPhotoEditor> {
 
   @override
   Widget build(BuildContext context) => StreamBuilder<List<CachedRecord>>(
-    stream: widget.photos.repository.watch('members'),
-    builder: (context, snapshot) {
-      final member =
-          snapshot.data?.where((r) => r.id == widget.member.id).firstOrNull ??
-          widget.member;
-      final path =
-          (jsonDecode(member.payload) as Map)['profile_image'] as String?;
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            MemberPhoto(photos: widget.photos, path: path, size: 112),
-            if (widget.photos.repository.access.editMembers) ...[
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: busy ? null : () => choose(member),
-                icon: busy
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.add_a_photo_outlined),
-                label: Text(
-                  path == null || path.isEmpty
-                      ? 'Add profile photo'
-                      : 'Change profile photo',
-                ),
-              ),
-              const Text(
-                'Automatically compressed · up to 512px · maximum 150 KB',
-                style: TextStyle(fontSize: 12),
-              ),
-              if (message != null) Text(message!),
-            ],
-          ],
-        ),
+        stream: widget.photos.repository.watch('members'),
+        builder: (context, snapshot) {
+          final member = snapshot.data
+                  ?.where((r) => r.id == widget.member.id)
+                  .firstOrNull ??
+              widget.member;
+          final path =
+              (jsonDecode(member.payload) as Map)['profile_image'] as String?;
+          return Padding(
+            padding: EdgeInsets.only(bottom: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                MemberPhoto(photos: widget.photos, path: path, size: 112),
+                if (widget.photos.repository.access.editMembers) ...[
+                  SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: busy ? null : () => choose(member),
+                    icon: busy
+                        ? SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(Icons.add_a_photo_outlined),
+                    label: Text(
+                      path == null || path.isEmpty
+                          ? 'Add profile photo'
+                          : 'Change profile photo',
+                    ),
+                  ),
+                  Text(
+                    'Automatically compressed · up to 512px · maximum 150 KB',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  if (message != null) Text(message!),
+                ],
+              ],
+            ),
+          );
+        },
       );
-    },
-  );
 }

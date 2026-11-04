@@ -22,8 +22,9 @@ class ReceiptDesignRepository {
           ? const ReceiptDesign(ReceiptHtml.defaultDesign, 0)
           : ReceiptDesign(row['html'] as String, row['version'] as int);
     } on PostgrestException catch (error) {
-      if (['42P01', 'PGRST205'].contains(error.code))
+      if (['42P01', 'PGRST205'].contains(error.code)) {
         return const ReceiptDesign(ReceiptHtml.defaultDesign, 0);
+      }
       rethrow;
     }
   }

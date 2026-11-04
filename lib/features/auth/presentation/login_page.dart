@@ -42,7 +42,7 @@ class _LoginPageState extends State<LoginPage> {
         await widget.recoveryClient!.auth.updateUser(
           UserAttributes(
             password: _password.text,
-            data: const {'requires_password_setup': false},
+            data: {'requires_password_setup': false},
           ),
         );
         await widget.repository.signOut();
@@ -78,31 +78,32 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     final recovery = widget.recoveryClient != null;
     return Scaffold(
+      appBar: AppBar(actions: [ThemeSwitcher(), SizedBox(width: 12)]),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(24),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 460),
+            constraints: BoxConstraints(maxWidth: 460),
             child: Card(
               child: Padding(
-                padding: const EdgeInsets.all(32),
+                padding: EdgeInsets.all(32),
                 child: Form(
                   key: _form,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.fitness_center_rounded,
                         size: 42,
-                        color: GymTheme.sage,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
-                      const SizedBox(height: 18),
+                      SizedBox(height: 18),
                       Text(
                         'GymPro UAE',
                         style: Theme.of(context).textTheme.headlineLarge,
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8),
                       Text(
                         recovery
                             ? 'Choose a new password'
@@ -111,7 +112,7 @@ class _LoginPageState extends State<LoginPage> {
                                 : 'Welcome back. Let’s keep your gym moving.',
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 32),
+                      SizedBox(height: 32),
                       if (!recovery)
                         TextFormField(
                           controller: _email,
@@ -128,7 +129,7 @@ class _LoginPageState extends State<LoginPage> {
                             labelText: _reset
                                 ? 'Work email'
                                 : 'Email, employee ID or username',
-                            prefixIcon: const Icon(Icons.person_outline),
+                            prefixIcon: Icon(Icons.person_outline),
                           ),
                           validator: (v) {
                             final value = v?.trim() ?? '';
@@ -142,7 +143,7 @@ class _LoginPageState extends State<LoginPage> {
                           },
                         ),
                       if (!_reset || recovery) ...[
-                        const SizedBox(height: 16),
+                        SizedBox(height: 16),
                         TextFormField(
                           controller: _password,
                           obscureText: _obscure,
@@ -154,7 +155,7 @@ class _LoginPageState extends State<LoginPage> {
                           ],
                           decoration: InputDecoration(
                             labelText: 'Password',
-                            prefixIcon: const Icon(Icons.lock_outline),
+                            prefixIcon: Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
                               tooltip:
                                   _obscure ? 'Show password' : 'Hide password',
@@ -177,14 +178,14 @@ class _LoginPageState extends State<LoginPage> {
                       ],
                       if (_message != null)
                         Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          padding: EdgeInsets.symmetric(vertical: 16),
                           child: Text(_message!),
                         ),
-                      const SizedBox(height: 24),
+                      SizedBox(height: 24),
                       FilledButton(
                         onPressed: _busy ? null : _submit,
                         child: _busy
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 20,
                                 height: 20,
                                 child: CircularProgressIndicator(
@@ -211,20 +212,20 @@ class _LoginPageState extends State<LoginPage> {
                             _reset ? 'Back to sign in' : 'Forgot password?',
                           ),
                         ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       if (!recovery &&
                           !_reset &&
                           widget.onCreateAccount != null)
                         OutlinedButton(
                           onPressed: _busy ? null : widget.onCreateAccount,
-                          child: const Text('Create account'),
+                          child: Text('Create account'),
                         ),
-                      const SizedBox(height: 16),
-                      const Text(
+                      SizedBox(height: 16),
+                      Text(
                         'Your workspace. Your team. A stronger community.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Color(0xFF8590A3),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 12,
                         ),
                       ),

@@ -66,11 +66,13 @@ Authorized issuer: {{issuer}}</p>
   ];
   static String? validate(String html) {
     if (html.trim().isEmpty) return 'Enter a receipt design.';
-    if (html.length > 100000)
+    if (html.length > 100000) {
       return 'Keep the design below 100,000 characters.';
+    }
     for (final match in RegExp(r'\{\{\s*(\w+)\s*\}\}').allMatches(html)) {
-      if (!placeholders.contains(match[1]))
+      if (!placeholders.contains(match[1])) {
         return 'Unknown placeholder: ${match[1]}';
+      }
     }
     for (final key in [
       'receipt_status',
@@ -80,15 +82,17 @@ Authorized issuer: {{issuer}}</p>
       'paid',
       'balance'
     ]) {
-      if (!RegExp(r'\{\{\s*' + key + r'\s*\}\}').hasMatch(html))
+      if (!RegExp(r'\{\{\s*' + key + r'\s*\}\}').hasMatch(html)) {
         return 'Include {{$key}} in the design.';
+      }
     }
     return null;
   }
 
   static String render(String template, Map<String, dynamic> receipt) {
-    if (receipt['receipt_number'] == null || receipt['snapshot'] is! Map)
+    if (receipt['receipt_number'] == null || receipt['snapshot'] is! Map) {
       throw ArgumentError('A finalized server receipt is required');
+    }
     final data = Map<String, dynamic>.from(receipt['snapshot'] as Map);
     final currency = data['currency'] as String? ?? 'AED';
     String money(String key) => Money.format(data[key] as int? ?? 0, currency);

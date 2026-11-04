@@ -73,12 +73,13 @@ class _ReceiptDesignEditorState extends State<ReceiptDesignEditor> {
         dirty = false;
       });
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           loading = false;
           message =
               'Could not load the receipt design. Reconnect and try again.';
         });
+      }
     }
   }
 
@@ -97,9 +98,10 @@ class _ReceiptDesignEditorState extends State<ReceiptDesignEditor> {
     final supported = await previewReceiptHtml(
         ReceiptHtml.render(controller.text, ReceiptHtml.sample(widget.gymName)),
         'Receipt design preview');
-    if (!supported && mounted)
+    if (!supported && mounted) {
       setState(() => message =
           'Open GymPro in your web browser to preview and print the HTML design.');
+    }
   }
 
   Future<void> save() async {
@@ -114,24 +116,27 @@ class _ReceiptDesignEditorState extends State<ReceiptDesignEditor> {
     });
     try {
       final design = await widget.repository.save(controller.text, version);
-      if (mounted)
+      if (mounted) {
         setState(() {
           version = design.version;
           saved = design.html;
           dirty = controller.text != saved;
           message = 'Receipt design saved for your gym.';
         });
+      }
     } on PostgrestException catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() => message = error.code == '40001'
             ? 'Another administrator changed this design. Copy your edits, then reopen the editor to load the latest version.'
             : ['42P01', 'PGRST202', 'PGRST205'].contains(error.code)
                 ? 'Receipt design storage is not available yet. Ask the app administrator to apply the latest database update.'
                 : 'Could not save the design. Check your connection and administrator access.');
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() => message =
             'Could not save the receipt design. Reconnect and try again.');
+      }
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -236,8 +241,9 @@ class _ReceiptDesignEditorState extends State<ReceiptDesignEditor> {
                                         alignLabelWithHint: true),
                                     onChanged: (value) {
                                       final changed = value != saved;
-                                      if (changed != dirty)
+                                      if (changed != dirty) {
                                         setState(() => dirty = changed);
+                                      }
                                     })),
                             const SizedBox(height: 8),
                             Text(

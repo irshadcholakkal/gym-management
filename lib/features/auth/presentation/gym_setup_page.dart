@@ -64,94 +64,99 @@ class _GymSetupPageState extends State<GymSetupPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    body: Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 500),
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Form(
-                key: _form,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Icon(
-                      Icons.fitness_center_rounded,
-                      size: 42,
-                      color: GymTheme.sage,
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Set up your gym',
-                      style: Theme.of(context).textTheme.headlineLarge,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Your account is verified. Create a workspace for your own gym to get started.',
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 24),
-                    TextFormField(
-                      controller: _name,
-                      enabled: !_busy,
-                      maxLength: 120,
-                      textCapitalization: TextCapitalization.words,
-                      decoration: const InputDecoration(
-                        labelText: 'Gym name',
-                        prefixIcon: Icon(Icons.storefront_outlined),
-                      ),
-                      validator: (v) => (v?.trim().isEmpty ?? true)
-                          ? 'Enter your gym name'
-                          : null,
-                      onFieldSubmitted: (_) => _create(),
-                    ),
-                    const SizedBox(height: 16),
-                    if (_error != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Text(
-                          _error!,
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
-                          ),
+        appBar: AppBar(actions: const [ThemeSwitcher(), SizedBox(width: 12)]),
+        body: Center(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: 500),
+              child: Card(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Form(
+                    key: _form,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Icon(
+                          Icons.fitness_center_rounded,
+                          size: 42,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
-                      ),
-                    FilledButton(
-                      onPressed: _busy ? null : _create,
-                      child: _busy
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Create gym workspace'),
+                        SizedBox(height: 20),
+                        Text(
+                          'Set up your gym',
+                          style: Theme.of(context).textTheme.headlineLarge,
+                          textAlign: TextAlign.center,
+                        ),
+                        SizedBox(height: 12),
+                        Text(
+                          'Your account is verified. Create a workspace for your own gym to get started.',
+                          textAlign: TextAlign.center,
+                        ),
+                        SizedBox(height: 24),
+                        TextFormField(
+                          controller: _name,
+                          enabled: !_busy,
+                          maxLength: 120,
+                          textCapitalization: TextCapitalization.words,
+                          decoration: InputDecoration(
+                            labelText: 'Gym name',
+                            prefixIcon: Icon(Icons.storefront_outlined),
+                          ),
+                          validator: (v) => (v?.trim().isEmpty ?? true)
+                              ? 'Enter your gym name'
+                              : null,
+                          onFieldSubmitted: (_) => _create(),
+                        ),
+                        SizedBox(height: 16),
+                        if (_error != null)
+                          Padding(
+                            padding: EdgeInsets.only(bottom: 16),
+                            child: Text(
+                              _error!,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                          ),
+                        FilledButton(
+                          onPressed: _busy ? null : _create,
+                          child: _busy
+                              ? SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : Text('Create gym workspace'),
+                        ),
+                        SizedBox(height: 20),
+                        Divider(),
+                        SizedBox(height: 12),
+                        Text(
+                          'Joining an existing gym? Ask its administrator to invite you. Creating a workspace here makes a separate gym.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant),
+                        ),
+                        TextButton(
+                          onPressed: _busy ? null : _retry,
+                          child: Text('Check invitation access'),
+                        ),
+                        TextButton(
+                          onPressed: _busy ? null : widget.onSignOut,
+                          child: Text('Sign out'),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 20),
-                    const Divider(),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Joining an existing gym? Ask its administrator to invite you. Creating a workspace here makes a separate gym.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Color(0xFF8590A3)),
-                    ),
-                    TextButton(
-                      onPressed: _busy ? null : _retry,
-                      child: const Text('Check invitation access'),
-                    ),
-                    TextButton(
-                      onPressed: _busy ? null : widget.onSignOut,
-                      child: const Text('Sign out'),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
         ),
-      ),
-    ),
-  );
+      );
 }

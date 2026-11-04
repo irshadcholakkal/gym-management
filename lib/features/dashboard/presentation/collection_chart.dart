@@ -70,8 +70,17 @@ class CollectionChart extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             Flexible(
-                              child: FractionallySizedBox(
-                                heightFactor: totals[i] / maximum,
+                              child: TweenAnimationBuilder<double>(
+                                tween:
+                                    Tween(begin: 0, end: totals[i] / maximum),
+                                duration:
+                                    MediaQuery.disableAnimationsOf(context)
+                                        ? Duration.zero
+                                        : const Duration(milliseconds: 550),
+                                curve: Curves.easeOutCubic,
+                                builder: (context, value, child) =>
+                                    FractionallySizedBox(
+                                        heightFactor: value, child: child),
                                 child: Container(
                                   margin: const EdgeInsets.symmetric(
                                     horizontal: 10,
@@ -81,8 +90,10 @@ class CollectionChart extends StatelessWidget {
                                   ),
                                   decoration: BoxDecoration(
                                     color: i == 5
-                                        ? const Color(0xFF397DE5)
-                                        : const Color(0xFF9DBEF5),
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Theme.of(context)
+                                            .colorScheme
+                                            .secondaryContainer,
                                     borderRadius: const BorderRadius.vertical(
                                       top: Radius.circular(6),
                                     ),

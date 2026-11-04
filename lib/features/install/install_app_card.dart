@@ -78,9 +78,10 @@ class _InstallAppCardState extends State<InstallAppCard> {
         };
       });
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() => updateMessage =
             'Could not check for updates. Reconnect and try again.');
+      }
     } finally {
       if (mounted) setState(() => checking = false);
     }
