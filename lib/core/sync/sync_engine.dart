@@ -19,8 +19,16 @@ class SyncStatus {
 }
 
 class SyncEngine extends Cubit<SyncStatus> {
-  SyncEngine(this.repository, this.client, {this.onAccessDenied})
+  SyncEngine(this.repository, this.client,
+      {this.onAccessDenied, bool autoStart = true})
       : super(const SyncStatus()) {
+    if (!autoStart) return;
+    _authSubscription = client.auth.onAuthStateChange.listen((event) {
+      if (event.event == AuthChangeEvent.tokenRefreshed ||
+          event.event == AuthChangeEvent.signedIn) {
+        _scheduleSync();
+      }
+    }, onError: (Object error, StackTrace stack) {});
     _stopConnectivity = onConnectivityRestored(() => unawaited(sync()));
     _timer = Timer.periodic(const Duration(seconds: 30), (_) => sync());
     _outbox = repository.watchOutbox().listen((operations) {
@@ -53,22 +61,85 @@ class SyncEngine extends Cubit<SyncStatus> {
   final SupabaseClient client;
   final Future<void> Function()? onAccessDenied;
   Timer? _timer, _broadcastTimer;
-  late final void Function() _stopConnectivity;
+  void Function() _stopConnectivity = () {};
+  StreamSubscription<AuthState>? _authSubscription;
   StreamSubscription<List<SyncOperation>>? _outbox;
   RealtimeChannel? _channel;
   bool _running = false, _stopping = false;
+  bool _requested = false;
+  Future<void>? _activeSync;
+  bool _recoveredLegacyFailures = false;
   void _scheduleSync() {
     _broadcastTimer?.cancel();
     _broadcastTimer = Timer(const Duration(milliseconds: 600), () {
       if (!_stopping) unawaited(sync());
     });
   }
-  Future<void> sync() async {
-    if (_running || _stopping) return;
+
+  Future<void> sync() {
+    if (_stopping || isClosed) return Future<void>.value();
+    _requested = true;
+    return _activeSync ??= _drain().whenComplete(() => _activeSync = null);
+  }
+
+  Future<void> _drain() async {
+    while (_requested && !_stopping) {
+      _requested = false;
+      await _syncOnce();
+    }
+  }
+
+  Future<dynamic> _rpc(String name, Map<String, dynamic> params) async {
+    Future<dynamic> send() =>
+        client.rpc(name, params: params).timeout(const Duration(seconds: 20));
+    try {
+      return await send();
+    } on PostgrestException catch (error) {
+      if (!['PGRST301', 'PGRST303'].contains(error.code) ||
+          client.auth.currentSession == null) {
+        rethrow;
+      }
+      // Renew an expired JWT once, preserving the operation's idempotency key.
+      await client.auth.refreshSession().timeout(const Duration(seconds: 15));
+      if (_stopping) throw StateError('Sync stopped');
+      return send();
+    }
+  }
+
+  Future<void> _syncOnce() async {
     _running = true;
     emit(SyncStatus(running: true, lastSync: state.lastSync));
     final db = repository.db, scope = repository.scope;
     try {
+      if (!_recoveredLegacyFailures) {
+        // Older versions permanently failed edits after repeated offline tries.
+        // Recover only that known network failure; leave validation errors alone.
+        await db.transaction(() async {
+          final stranded = await (db.select(db.syncOperations)
+                ..where((o) =>
+                    o.scope.equals(scope) &
+                    o.state.equals('failed') &
+                    o.error.equals(
+                        'Server unreachable. Your change remains on this device.')))
+              .get();
+          for (final op in stranded) {
+            await (db.update(db.syncOperations)
+                  ..where((o) => o.id.equals(op.id)))
+                .write(SyncOperationsCompanion(
+                    state: const Value('pending'),
+                    attempts: const Value(0),
+                    nextAttempt: Value(DateTime.now().toUtc())));
+            await (db.update(db.cachedRecords)
+                  ..where((r) =>
+                      r.scope.equals(scope) &
+                      r.kind.equals(op.kind) &
+                      r.id.equals(op.recordId)))
+                .write(
+                    const CachedRecordsCompanion(syncState: Value('pending')));
+          }
+        });
+        _recoveredLegacyFailures = true;
+      }
       final ops = await (db.select(db.syncOperations)
             ..where(
               (o) =>
@@ -81,9 +152,9 @@ class SyncEngine extends Cubit<SyncStatus> {
         if (_stopping) break;
         try {
           final result = Map<String, dynamic>.from(
-            await client.rpc(
+            await _rpc(
               'apply_sync_operation',
-              params: {
+              {
                 'p_gym': repository.access.gymId,
                 'p_operation': op.id,
                 'p_kind': op.kind,
@@ -91,7 +162,7 @@ class SyncEngine extends Cubit<SyncStatus> {
                 'p_expected': op.expectedVersion,
                 'p_data': jsonDecode(op.payload),
               },
-            ).timeout(const Duration(seconds: 20)) as Map,
+            ) as Map,
           );
           await db.transaction(() async {
             await db.into(db.cachedRecords).insertOnConflictUpdate(
@@ -110,6 +181,12 @@ class SyncEngine extends Cubit<SyncStatus> {
                 .go();
           });
         } on PostgrestException catch (e) {
+          if (e.code == null ||
+              ['PGRST301', 'PGRST303', '502', '503', '504'].contains(e.code)) {
+            await _fail(op, 'pending',
+                'Connection interrupted. Will retry automatically.');
+            rethrow;
+          }
           final conflict = e.code == '40001';
           final denied = e.code == '42501';
           if (denied) {
@@ -129,9 +206,11 @@ class SyncEngine extends Cubit<SyncStatus> {
         } catch (_) {
           await _fail(
             op,
-            op.attempts >= 7 ? 'failed' : 'pending',
+            'pending',
             'Server unreachable. Your change remains on this device.',
           );
+          // Do not wait twenty seconds for every queued edit while offline.
+          rethrow;
         }
       }
       var checkpoint = await (db.select(
@@ -143,13 +222,13 @@ class SyncEngine extends Cubit<SyncStatus> {
         await Future<void>.delayed(Duration.zero);
         if (_stopping) break;
         final result = Map<String, dynamic>.from(
-          await client.rpc(
+          await _rpc(
             'pull_changes',
-            params: {
+            {
               'p_gym': repository.access.gymId,
               'p_cursor': checkpoint?.cursor ?? 0,
             },
-          ).timeout(const Duration(seconds: 20)) as Map,
+          ) as Map,
         );
         final changes =
             (result['changes'] as List).cast<Map<String, dynamic>>();
@@ -206,7 +285,7 @@ class SyncEngine extends Cubit<SyncStatus> {
           error: Value(message),
           nextAttempt: Value(
             DateTime.now().toUtc().add(
-                  Duration(seconds: min(900, 2 << op.attempts)),
+                  Duration(seconds: min(900, 2 << min(op.attempts, 9))),
                 ),
           ),
         ),
@@ -228,6 +307,7 @@ class SyncEngine extends Cubit<SyncStatus> {
     _stopConnectivity();
     _timer?.cancel();
     _broadcastTimer?.cancel();
+    await _authSubscription?.cancel();
     await _outbox?.cancel();
     if (_channel != null) await client.removeChannel(_channel!);
     while (_running) {

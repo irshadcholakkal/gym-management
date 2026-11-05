@@ -173,7 +173,10 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
                 path: path,
                 pageBuilder: (_, state) => NoTransitionPage<void>(
                   key: state.pageKey,
-                  child: WorkspaceContent(path: path),
+                  child: WorkspaceContent(
+                    path: path,
+                    queryParameters: state.uri.queryParameters,
+                  ),
                 ),
               ),
           ],

@@ -36,6 +36,7 @@ import 'operation_dialogs.dart';
 import 'admin_actions.dart';
 import 'record_details.dart';
 import 'record_labels.dart';
+import 'directory_index.dart';
 import '../features/payments/domain/discount_totals.dart';
 import 'database/database.dart';
 import 'sync/sync_engine.dart';
@@ -473,14 +474,21 @@ class WorkspaceSyncAction extends StatelessWidget {
 }
 
 class WorkspaceContent extends StatelessWidget {
-  const WorkspaceContent({super.key, required this.path});
+  const WorkspaceContent({
+    super.key,
+    required this.path,
+    this.queryParameters = const {},
+  });
   final String path;
+  final Map<String, String> queryParameters;
   @override
   Widget build(BuildContext context) {
     if (path == '/') return const Dashboard();
     if (path == '/sync') return const SyncCenter();
     if (path == '/settings') return const SettingsPanel();
-    if (path == '/notifications') return NotificationCenter();
+    if (path == '/notifications') {
+      return NotificationCenter(queryParameters: queryParameters);
+    }
     final kind = {
       '/members': 'members',
       '/packages': 'membership_packages',
@@ -493,8 +501,9 @@ class WorkspaceContent extends StatelessWidget {
     return RecordDirectory(
       kind: kind,
       photos: context.read<MemberPhotos>(),
-      initialFilter:
-          GoRouterState.of(context).uri.queryParameters['filter'] ?? 'all',
+      // Read the route builder's state rather than looking up a departing
+      // page's removed registry entry during a ShellRoute transition.
+      initialFilter: queryParameters['filter'] ?? 'all',
     );
   }
 }
@@ -921,15 +930,18 @@ class _RecordDirectoryState extends State<RecordDirectory> {
   String query = '', filter = 'all';
   int page = 0;
   Timer? _statusTimer, _searchTimer;
-  List<CachedRecord>? _labelRecords;
-  RecordLabels? _labels;
-  final _lowerPayloads = <String, String>{};
-  /// Lowercasing every full payload on each rebuild froze large directories.
-  String _searchText(CachedRecord r) =>
-      _lowerPayloads.putIfAbsent(
-        '${r.kind}:${r.id}',
-        () => r.payload.toLowerCase(),
-      );
+  Stream<DirectoryIndex>? _directoryStream;
+  String? _directoryKey;
+  Stream<DirectoryIndex> _watchDirectory(
+      WorkspaceRepository repo, String kind, List<String> kinds) {
+    final key = '${repo.scope}:${kinds.join(',')}';
+    if (_directoryKey != key) {
+      _directoryKey = key;
+      _directoryStream = repo.watchKinds(kinds).asyncMap(DirectoryIndex.create);
+    }
+    return _directoryStream!;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -969,7 +981,6 @@ class _RecordDirectoryState extends State<RecordDirectory> {
     final editable = kind == 'members' && repo.access.editMembers ||
         kind == 'membership_packages' && repo.access.administer;
     return Focus(
-      autofocus: true,
       skipTraversal: true,
       child: Column(
         children: [
@@ -977,7 +988,11 @@ class _RecordDirectoryState extends State<RecordDirectory> {
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
-                onPressed: () => context.go(GoRouterState.of(context).uri.path),
+                onPressed: () => context.go(GoRouter.of(context)
+                    .routeInformationProvider
+                    .value
+                    .uri
+                    .path),
                 icon: Icon(Icons.arrow_back),
                 label: Text('Show all records'),
               ),
@@ -1101,8 +1116,8 @@ class _RecordDirectoryState extends State<RecordDirectory> {
           ),
           SizedBox(height: 12),
           Expanded(
-            child: StreamBuilder<List<CachedRecord>>(
-              stream: repo.watchKinds([
+            child: StreamBuilder<DirectoryIndex>(
+              stream: _watchDirectory(repo, kind, [
                 kind,
                 if (['subscriptions', 'invoices', 'payments', 'receipts']
                     .contains(kind)) ...[
@@ -1120,44 +1135,26 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                 if (!snapshot.hasData) {
                   return Center(child: CircularProgressIndicator());
                 }
-                if (!identical(_labelRecords, snapshot.data)) {
-                  _labelRecords = snapshot.data;
-                  _labels = RecordLabels(snapshot.data!);
-                  _lowerPayloads.clear();
-                }
-                final labels = _labels!;
-                final records = snapshot.data!
-                    .where(
-                      (r) =>
-                          r.kind == kind &&
-                          (focusedRecord != null
-                              ? r.id == focusedRecord
-                              : (_searchText(r).contains(query) ||
-                                      labels
-                                          .title(
-                                            kind,
-                                            labels.lookup(kind, r.id),
-                                          )
-                                          .toLowerCase()
-                                          .contains(query)) &&
-                                  (filter == 'all' ||
-                                      filter == 'pending' &&
-                                          r.syncState != 'synced' ||
-                                      (kind == 'subscriptions'
-                                          ? MembershipStatus(
-                                                  labels.lookup(kind, r.id))
-                                              .matchesFilter(filter)
-                                          : labels.lookup(
-                                                  kind, r.id)['status'] ==
-                                              filter))),
-                    )
-                    .toList()
-                  ..sort(
-                    (a, b) =>
-                        labels.title(kind, labels.lookup(kind, a.id)).compareTo(
-                              labels.title(kind, labels.lookup(kind, b.id)),
-                            ),
-                  );
+                final index = snapshot.data!;
+                final labels = index.labels;
+                final records = index.records
+                    .where((r) =>
+                        r.kind == kind &&
+                        (focusedRecord != null
+                            ? r.id == focusedRecord
+                            : (query.isEmpty ||
+                                    index.search['${r.kind}:${r.id}']!
+                                        .contains(query)) &&
+                                (filter == 'all' ||
+                                    filter == 'pending' &&
+                                        r.syncState != 'synced' ||
+                                    (kind == 'subscriptions'
+                                        ? MembershipStatus(
+                                                labels.lookup(kind, r.id))
+                                            .matchesFilter(filter)
+                                        : labels.lookup(kind, r.id)['status'] ==
+                                            filter))))
+                    .toList();
                 if (records.isEmpty) {
                   return Card(
                     child: EmptyPanel(

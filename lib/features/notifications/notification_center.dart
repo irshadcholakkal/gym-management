@@ -92,7 +92,8 @@ class _NotificationBellState extends State<NotificationBell> {
 }
 
 class NotificationCenter extends StatefulWidget {
-  const NotificationCenter({super.key});
+  const NotificationCenter({super.key, this.queryParameters = const {}});
+  final Map<String, String> queryParameters;
   @override
   State<NotificationCenter> createState() => _NotificationCenterState();
 }
@@ -124,7 +125,7 @@ class _NotificationCenterState extends State<NotificationCenter> {
   @override
   Widget build(BuildContext context) {
     final repo = context.read<WorkspaceRepository>();
-    final params = GoRouterState.of(context).uri.queryParameters;
+    final params = widget.queryParameters;
     final focused = params['notification'];
     final wrongGym =
         params['gym'] != null && params['gym'] != repo.access.gymId;
@@ -191,7 +192,8 @@ class _NotificationCenterState extends State<NotificationCenter> {
               // comparator froze the inbox as notifications accumulated.
               final decoded = snapshot.data!
                   .where((r) => r.kind == 'notifications')
-                  .map((r) => (record: r, data: labels.lookup('notifications', r.id)))
+                  .map((r) =>
+                      (record: r, data: labels.lookup('notifications', r.id)))
                   .toList();
               final records = decoded.where((entry) {
                 final r = entry.record, m = entry.data;

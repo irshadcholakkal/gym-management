@@ -24,8 +24,19 @@ class RecordLabels {
     }
   }
   final _records = <String, Map<String, dynamic>>{};
+  RecordLabels.lazy(Iterable<CachedRecord> records) {
+    for (final record in records) {
+      _payloads['${record.kind}:${record.id}'] = record.payload;
+    }
+  }
+  final _payloads = <String, String>{};
   Map<String, dynamic> lookup(String kind, Object? id) =>
-      _records['$kind:$id'] ?? {};
+      _records.putIfAbsent('$kind:$id', () {
+        final payload = _payloads.remove('$kind:$id');
+        return payload == null
+            ? {}
+            : jsonDecode(payload) as Map<String, dynamic>;
+      });
   String member(Map data) =>
       (data['snapshot'] is Map ? data['snapshot']['member_name'] : null)
           ?.toString() ??
@@ -41,7 +52,8 @@ class RecordLabels {
         lookup(
           'membership_packages',
           subscription['package_id'],
-        )['name']?.toString() ??
+        )['name']
+            ?.toString() ??
         'Membership';
   }
 
@@ -71,8 +83,7 @@ class RecordLabels {
       return '${displayDate(data['start_date'])} – ${displayDate(end)}';
     }
     if (kind == 'invoices') {
-      final balance =
-          (data['total_minor'] as int? ?? 0) -
+      final balance = (data['total_minor'] as int? ?? 0) -
           (data['paid_minor'] as int? ?? 0) -
           (data['credit_minor'] as int? ?? 0);
       return '${package(data)} · ${Money.format(balance, data['currency'] as String? ?? 'AED')} due · ${displayDate(data['due_date'])}';
