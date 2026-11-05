@@ -14,6 +14,21 @@ class MembershipStatus {
 
   DateTime? get end => date(data['end_exclusive']);
   int? get days => end?.difference(today).inDays;
+  bool matchesFilter(String filter) {
+    if (filter == 'active') {
+      return status == 'active' || status == 'expiring_soon';
+    }
+    if (filter == 'expiring_soon') {
+      final lastDay = end?.subtract(const Duration(days: 1));
+      final remaining = lastDay?.difference(today).inDays;
+      return data['status'] == 'active' &&
+          remaining != null &&
+          remaining >= 0 &&
+          remaining <= 7;
+    }
+    return status == filter;
+  }
+
   String get status {
     final raw = data['status']?.toString() ?? 'draft';
     if (raw != 'active') return raw;

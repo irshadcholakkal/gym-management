@@ -29,6 +29,13 @@ class SyncEngine extends Cubit<SyncStatus> {
           !op.nextAttempt.isAfter(DateTime.now().toUtc()))) {
         unawaited(sync());
       }
+    }, onError: (Object error, StackTrace stack) {
+      if (!_stopping && !isClosed) {
+        emit(SyncStatus(
+            error:
+                'Local storage is unavailable. Check browser storage permissions.',
+            lastSync: state.lastSync));
+      }
     });
     _channel = client.channel(
       'gym:${repository.access.gymId}',
@@ -74,7 +81,7 @@ class SyncEngine extends Cubit<SyncStatus> {
                 'p_expected': op.expectedVersion,
                 'p_data': jsonDecode(op.payload),
               },
-            ) as Map,
+            ).timeout(const Duration(seconds: 20)) as Map,
           );
           await db.transaction(() async {
             await db.into(db.cachedRecords).insertOnConflictUpdate(
@@ -129,51 +136,16 @@ class SyncEngine extends Cubit<SyncStatus> {
               'p_gym': repository.access.gymId,
               'p_cursor': checkpoint?.cursor ?? 0,
             },
-          ) as Map,
+          ).timeout(const Duration(seconds: 20)) as Map,
         );
         final changes =
             (result['changes'] as List).cast<Map<String, dynamic>>();
-        await db.transaction(() async {
-          for (final change in changes) {
-            if (change['deleted'] == true) {
-              await (db.delete(db.cachedRecords)
-                    ..where(
-                      (r) =>
-                          r.scope.equals(scope) &
-                          r.kind.equals(change['kind'] as String) &
-                          r.id.equals(change['record_id'] as String),
-                    ))
-                  .go();
-              continue;
-            }
-            final pending = await (db.select(db.syncOperations)
-                  ..where(
-                    (o) =>
-                        o.scope.equals(scope) &
-                        o.recordId.equals(change['record_id'] as String),
-                  ))
-                .get();
-            if (pending.isNotEmpty) continue;
-            await db.into(db.cachedRecords).insertOnConflictUpdate(
-                  CachedRecordsCompanion.insert(
-                    scope: scope,
-                    kind: change['kind'] as String,
-                    id: change['record_id'] as String,
-                    payload: jsonEncode(change['payload']),
-                    syncState: const Value('synced'),
-                    version: Value(
-                      (change['payload'] as Map)['version'] as int,
-                    ),
-                  ),
-                );
-          }
-          await db.into(db.syncCheckpoints).insertOnConflictUpdate(
-                SyncCheckpointsCompanion.insert(
-                  scope: scope,
-                  cursor: Value(result['cursor'] as int),
-                ),
-              );
-        });
+        final nextCursor = result['cursor'] as int;
+        if (result['has_more'] == true &&
+            nextCursor <= (checkpoint?.cursor ?? 0)) {
+          throw StateError('The sync cursor did not advance.');
+        }
+        await repository.applyRemoteChanges(changes, nextCursor);
         checkpoint = SyncCheckpoint(
           scope: scope,
           cursor: result['cursor'] as int,

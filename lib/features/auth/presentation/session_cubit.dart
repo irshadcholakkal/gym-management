@@ -36,6 +36,7 @@ class SessionCubit extends Cubit<SessionState> {
   int _generation = 0;
   Timer? _accessTimer;
   Future<void> restore() async {
+    if (isClosed) return;
     final generation = ++_generation;
     if (!repository.signedIn) {
       emit(const SessionState(SessionStatus.signedOut));
@@ -46,7 +47,8 @@ class SessionCubit extends Cubit<SessionState> {
       return;
     }
     try {
-      final access = await repository.access();
+      final access =
+          await repository.access().timeout(const Duration(seconds: 15));
       if (!isClosed && generation == _generation) {
         final previous = state.access;
         if (state.status != SessionStatus.signedIn ||
@@ -78,6 +80,12 @@ class SessionCubit extends Cubit<SessionState> {
       }
     } catch (_) {
       if (!isClosed && generation == _generation) {
+        // A failed background network check must not destroy an already
+        // authorized, local-first workspace. Explicit access denials above
+        // still take effect immediately; initial access still fails closed.
+        if (state.status == SessionStatus.signedIn && repository.signedIn) {
+          return;
+        }
         emit(
           const SessionState(
             SessionStatus.denied,
@@ -90,13 +98,16 @@ class SessionCubit extends Cubit<SessionState> {
   }
 
   Future<void> signOut() async {
-    ++_generation;
+    final generation = ++_generation;
     await repository.signOut();
-    emit(const SessionState(SessionStatus.signedOut));
+    if (!isClosed && generation == _generation) {
+      emit(const SessionState(SessionStatus.signedOut));
+    }
   }
 
   @override
   Future<void> close() async {
+    ++_generation;
     _accessTimer?.cancel();
     await _subscription?.cancel();
     return super.close();

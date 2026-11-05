@@ -348,12 +348,11 @@ class PageEntrance extends StatelessWidget {
         tween: Tween(begin: 0, end: 1),
         duration: MediaQuery.disableAnimationsOf(context)
             ? Duration.zero
-            : const Duration(milliseconds: 300),
+            : const Duration(milliseconds: 160),
         curve: Curves.easeOutCubic,
-        builder: (_, value, child) => Opacity(
-            opacity: value,
-            child: Transform.translate(
-                offset: Offset(0, 10 * (1 - value)), child: child)),
+        // Avoid an opacity layer over the entire workspace on every navigation.
+        builder: (_, value, child) => Transform.translate(
+            offset: Offset(0, 6 * (1 - value)), child: child),
         child: child,
       );
 }

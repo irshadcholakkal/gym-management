@@ -168,7 +168,10 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
             ])
               GoRoute(
                 path: path,
-                builder: (_, _) => WorkspaceContent(path: path),
+                pageBuilder: (_, state) => NoTransitionPage<void>(
+                  key: state.pageKey,
+                  child: WorkspaceContent(path: path),
+                ),
               ),
           ],
         ),

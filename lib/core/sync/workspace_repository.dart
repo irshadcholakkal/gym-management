@@ -15,17 +15,79 @@ class WorkspaceRepository {
   // Stable query streams avoid resubscribing on every keystroke or sync update.
   late final Stream<List<CachedRecord>> records = (db.select(db.cachedRecords)
         ..where((r) => r.scope.equals(scope)))
-      .watch();
+      .watch()
+      .distinct(_sameRecords);
   final _kindStreams = <String, Stream<List<CachedRecord>>>{};
   Stream<List<CachedRecord>> watch(String kind) => _kindStreams.putIfAbsent(
       kind,
       () => (db.select(db.cachedRecords)
             ..where((r) => r.scope.equals(scope) & r.kind.equals(kind)))
-          .watch());
+          .watch()
+          .distinct(_sameRecords));
+  final _groupStreams = <String, Stream<List<CachedRecord>>>{};
+  Stream<List<CachedRecord>> watchKinds(Iterable<String> kinds) {
+    final selected = kinds.toSet().toList()..sort();
+    return _groupStreams.putIfAbsent(
+        selected.join(','),
+        () => (db.select(db.cachedRecords)
+              ..where((r) => r.scope.equals(scope) & r.kind.isIn(selected)))
+            .watch()
+            .distinct(_sameRecords));
+  }
+
+  static bool _sameRecords(
+      List<CachedRecord> before, List<CachedRecord> after) {
+    if (before.length != after.length) return false;
+    for (var i = 0; i < before.length; i++) {
+      if (before[i] != after[i]) return false;
+    }
+    return true;
+  }
+
   late final Stream<List<SyncOperation>> _outboxStream =
       (db.select(db.syncOperations)..where((r) => r.scope.equals(scope)))
           .watch();
   Stream<List<SyncOperation>> watchOutbox() => _outboxStream;
+
+  /// Apply a pull page in one transaction and one batch, not a query per row.
+  Future<void> applyRemoteChanges(
+          List<Map<String, dynamic>> changes, int cursor) =>
+      db.transaction(() async {
+        final pending = await (db.select(db.syncOperations)
+              ..where((o) => o.scope.equals(scope)))
+            .get();
+        final protectedIds = pending.map((o) => o.recordId).toSet();
+        await db.batch((batch) {
+          for (final change in changes) {
+            final id = change['record_id'] as String;
+            final kind = change['kind'] as String;
+            // Keep pending local edits, including when a remote deletion arrives.
+            if (protectedIds.contains(id)) continue;
+            if (change['deleted'] == true) {
+              batch.deleteWhere(
+                  db.cachedRecords,
+                  (r) =>
+                      r.scope.equals(scope) &
+                      r.kind.equals(kind) &
+                      r.id.equals(id));
+            } else {
+              batch.insertAllOnConflictUpdate(db.cachedRecords, [
+                CachedRecordsCompanion.insert(
+                  scope: scope,
+                  kind: kind,
+                  id: id,
+                  payload: jsonEncode(change['payload']),
+                  syncState: const Value('synced'),
+                  version: Value((change['payload'] as Map)['version'] as int),
+                )
+              ]);
+            }
+          }
+          batch.insertAllOnConflictUpdate(db.syncCheckpoints, [
+            SyncCheckpointsCompanion.insert(scope: scope, cursor: Value(cursor))
+          ]);
+        });
+      });
   Future<String> save(
     String kind,
     Map<String, dynamic> fields, {

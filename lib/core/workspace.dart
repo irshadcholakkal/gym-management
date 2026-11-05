@@ -490,18 +490,37 @@ class WorkspaceContent extends StatelessWidget {
       '/employees': 'employees',
       '/notifications': 'notifications',
     }[path]!;
-    return RecordDirectory(kind: kind, photos: context.read<MemberPhotos>());
+    return RecordDirectory(
+      kind: kind,
+      photos: context.read<MemberPhotos>(),
+      initialFilter:
+          GoRouterState.of(context).uri.queryParameters['filter'] ?? 'all',
+    );
   }
 }
 
 class Dashboard extends StatelessWidget {
   const Dashboard({super.key});
+  static String destination(String label) => switch (label) {
+        'Registered members' => '/members',
+        'Active memberships' => '/subscriptions?filter=active',
+        'Paused memberships' => '/subscriptions?filter=paused',
+        'Expired memberships' => '/subscriptions?filter=expired',
+        'Expiring within 7 days' => '/subscriptions?filter=expiring_soon',
+        _ => '/payments',
+      };
   @override
   Widget build(BuildContext context) {
     final repo = context.read<WorkspaceRepository>();
     final compact = MediaQuery.sizeOf(context).width < 600;
     return StreamBuilder<List<CachedRecord>>(
-      stream: repo.records,
+      stream: repo.watchKinds(const [
+        'members',
+        'subscriptions',
+        'invoices',
+        'payments',
+        'payment_reversals'
+      ]),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Text(
@@ -583,7 +602,7 @@ class Dashboard extends StatelessWidget {
           ),
           (
             'Active memberships',
-            '${subscriptions.where((r) => r['status'] == 'active').length}',
+            '${subscriptions.where((r) => MembershipStatus(r).matchesFilter('active')).length}',
             Icons.verified_outlined,
             Theme.of(context).colorScheme.secondaryContainer,
           ),
@@ -602,7 +621,7 @@ class Dashboard extends StatelessWidget {
             ),
           (
             'Expired memberships',
-            '${subscriptions.where((s) => s['status'] == 'expired').length}',
+            '${subscriptions.where((s) => MembershipStatus(s).matchesFilter('expired')).length}',
             Icons.event_busy,
             Theme.of(context).colorScheme.secondaryContainer,
           ),
@@ -654,52 +673,68 @@ class Dashboard extends StatelessWidget {
                                   16 * (box.maxWidth > 1200 ? 3 : 1)) /
                               (box.maxWidth > 1200 ? 4 : 2),
                       child: Card(
+                        clipBehavior: Clip.antiAlias,
                         color: m == metrics.first
                             ? Theme.of(context).colorScheme.secondaryContainer
                             : Theme.of(context).colorScheme.surface,
-                        child: Padding(
-                          padding: EdgeInsets.all(compact ? 12 : 16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                padding: EdgeInsets.all(compact ? 8 : 12),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .secondaryContainer,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Icon(m.$3,
-                                    color:
-                                        Theme.of(context).colorScheme.primary,
-                                    size: compact ? 18 : 24),
+                        child: InkWell(
+                            onTap: () => context.go(destination(m.$1)),
+                            child: Padding(
+                              padding: EdgeInsets.all(compact ? 12 : 16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(children: [
+                                    Expanded(
+                                        child: Align(
+                                            alignment: Alignment.centerLeft,
+                                            child: Container(
+                                              padding: EdgeInsets.all(
+                                                  compact ? 8 : 12),
+                                              decoration: BoxDecoration(
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .secondaryContainer,
+                                                borderRadius:
+                                                    BorderRadius.circular(16),
+                                              ),
+                                              child: Icon(m.$3,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .primary,
+                                                  size: compact ? 18 : 24),
+                                            ))),
+                                    Icon(Icons.arrow_outward_rounded,
+                                        size: 18,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant)
+                                  ]),
+                                  SizedBox(height: compact ? 12 : 20),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(m.$2,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .headlineSmall),
+                                  ),
+                                  SizedBox(height: 6),
+                                  SizedBox(
+                                      height: 38,
+                                      child: Text(
+                                        m.$1,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                        ),
+                                      )),
+                                ],
                               ),
-                              SizedBox(height: compact ? 12 : 20),
-                              FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.centerLeft,
-                                child: Text(m.$2,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .headlineSmall),
-                              ),
-                              SizedBox(height: 6),
-                              SizedBox(
-                                  height: 38,
-                                  child: Text(
-                                    m.$1,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
-                                    ),
-                                  )),
-                            ],
-                          ),
-                        ),
+                            )),
                       ),
                     ),
                 ],
@@ -873,9 +908,11 @@ class EmptyPanel extends StatelessWidget {
 }
 
 class RecordDirectory extends StatefulWidget {
-  const RecordDirectory({super.key, required this.kind, this.photos});
+  const RecordDirectory(
+      {super.key, required this.kind, this.photos, this.initialFilter = 'all'});
   final MemberPhotos? photos;
   final String kind;
+  final String initialFilter;
   @override
   State<RecordDirectory> createState() => _RecordDirectoryState();
 }
@@ -889,6 +926,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
   @override
   void initState() {
     super.initState();
+    filter = widget.initialFilter;
     _statusTimer = Timer.periodic(Duration(minutes: 1), (_) {
       if (mounted && widget.kind == 'subscriptions') setState(() {});
     });
@@ -904,10 +942,11 @@ class _RecordDirectoryState extends State<RecordDirectory> {
   @override
   void didUpdateWidget(RecordDirectory oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.kind != widget.kind) {
+    if (oldWidget.kind != widget.kind ||
+        oldWidget.initialFilter != widget.initialFilter) {
       _searchTimer?.cancel();
       query = '';
-      filter = 'all';
+      filter = widget.initialFilter;
       page = 0;
     }
   }
@@ -1056,7 +1095,15 @@ class _RecordDirectoryState extends State<RecordDirectory> {
           SizedBox(height: 12),
           Expanded(
             child: StreamBuilder<List<CachedRecord>>(
-              stream: repo.records,
+              stream: repo.watchKinds([
+                kind,
+                if (['subscriptions', 'invoices', 'payments', 'receipts']
+                    .contains(kind)) ...[
+                  'members',
+                  'membership_packages',
+                  'subscriptions'
+                ]
+              ]),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return Text(
@@ -1089,12 +1136,12 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                       filter == 'pending' &&
                                           r.syncState != 'synced' ||
                                       (kind == 'subscriptions'
-                                              ? MembershipStatus(
-                                                  labels.lookup(kind, r.id),
-                                                ).status
-                                              : (jsonDecode(r.payload)
-                                                  as Map)['status']) ==
-                                          filter)),
+                                          ? MembershipStatus(
+                                                  labels.lookup(kind, r.id))
+                                              .matchesFilter(filter)
+                                          : labels.lookup(
+                                                  kind, r.id)['status'] ==
+                                              filter))),
                     )
                     .toList()
                   ..sort(

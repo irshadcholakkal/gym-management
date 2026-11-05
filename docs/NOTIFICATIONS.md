@@ -6,7 +6,7 @@ The bell displays the unread count. Notifications supports unread, warnings, and
 
 ## Deployment
 
-1. Apply migrations, including `202610300001_notification_reminders.sql`.
+1. Apply migrations, including `202610300001_notification_reminders.sql` and `202611010002_reminder_query_alias.sql`. The alias fix is required for reminder generation on PostgreSQL.
 2. Set Edge Function secrets `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (a valid `mailto:` contact), and `REMINDER_JOB_SECRET`.
 3. Deploy `process-reminders` (JWT verification is disabled in `supabase/config.toml`; the function verifies its own job secret).
 4. Set Vault secrets `gympro_project_url` and `gympro_reminder_job_secret`, then run `supabase/deploy_jobs.sql` to schedule delivery every five minutes.
@@ -14,6 +14,14 @@ The bell displays the unread count. Notifications supports unread, warnings, and
 6. In Notifications, choose **Enable push on this device**, then allow browser notifications. Each device must subscribe separately. If permission is blocked, change the browser site setting. On iPhone/iPad, install the PWA on the Home Screen and enable push from the installed app.
 
 In-app notifications remain available without push permission or VAPID configuration. The app synchronizes while open; server jobs generate and deliver alerts while it is closed. The enable action confirms browser registration, not end-to-end server delivery.
+
+The scheduling SQL trims accidental whitespace from Vault configuration and allows 60 seconds for the delivery request. A successful cron run only confirms that the HTTP request was queued; inspect `net._http_response` and `notification_deliveries` to verify processing and provider acceptance.
+
+## Test by entering a membership
+
+Use a separate test member and a one-day package. Set the membership start date to today's date in the gym timezone and leave it active. Its last valid day is today, so it qualifies for `expiry_0`. For a tomorrow reminder, use a two-day package starting today (`expiry_1`). Wait for synchronization and the next five-minute delivery run, then check the in-app inbox and the device notification center. Owners, admins, managers, and receptionists receive these reminders; paused memberships do not qualify.
+
+Keep the reminder unread while testing push: read or superseded reminders are excluded from delivery. Re-running the job does not send an already delivered reminder again. Use a new test membership for a fresh end-to-end test; do not change real membership dates just to trigger a notification.
 
 ## Hosted verification
 

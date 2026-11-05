@@ -15,7 +15,7 @@ bool currentNotification(Map data, String user) =>
     data['recipient_id'] == user && data['superseded_at'] == null;
 
 Stream<List<CachedRecord>> notificationRecords(WorkspaceRepository repo) =>
-    repo.records;
+    repo.watch('notifications');
 
 class NotificationBell extends StatefulWidget {
   const NotificationBell({super.key});
