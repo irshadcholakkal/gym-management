@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -29,12 +28,15 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
   final _appearance = ThemePreference();
   late final GoRouter _router;
   String? _pendingNotification;
-  late final SemanticsHandle _semantics;
   @override
   void initState() {
     super.initState();
     unawaited(_appearance.restore());
-    _semantics = WidgetsBinding.instance.ensureSemantics();
+    // Semantics are intentionally NOT forced globally. Forcing them used to
+    // intercept iOS Safari taps with accessibility DOM nodes, so the on-screen
+    // keyboard never appeared for text fields, and it built the accessibility
+    // tree for every user. Flutter enables semantics automatically when a
+    // screen reader such as VoiceOver is detected.
     WidgetsBinding.instance.addObserver(this);
     if (widget.client != null) {
       _auth = widget.repository ?? SupabaseAuthRepository(widget.client!);
@@ -202,7 +204,6 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
     _appearance.dispose();
     _session?.close();
     unawaited(_auth?.dispose());
-    _semantics.dispose();
     super.dispose();
   }
 
