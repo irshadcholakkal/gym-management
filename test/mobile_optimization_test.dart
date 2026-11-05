@@ -32,6 +32,10 @@ class AccessRepository implements AuthRepository {
       role: GymRole.admin,
       options: Map.of(options));
   @override
+  Future<GymAccess?> cachedAccess() async => null;
+  @override
+  Future<void> cacheAccess(GymAccess access) async {}
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 

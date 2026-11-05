@@ -41,18 +41,28 @@ class SyncEngine extends Cubit<SyncStatus> {
       'gym:${repository.access.gymId}',
       opts: const RealtimeChannelConfig(private: true),
     )
-      ..onBroadcast(event: 'changed', callback: (_) => sync())
+      ..onBroadcast(
+          event: 'changed',
+          // Coalesce bursts so a burst of remote edits cannot pin the UI
+          // thread with back-to-back pull cycles.
+          callback: (_) => _scheduleSync())
       ..subscribe();
     unawaited(sync());
   }
   final WorkspaceRepository repository;
   final SupabaseClient client;
   final Future<void> Function()? onAccessDenied;
-  Timer? _timer;
+  Timer? _timer, _broadcastTimer;
   late final void Function() _stopConnectivity;
   StreamSubscription<List<SyncOperation>>? _outbox;
   RealtimeChannel? _channel;
   bool _running = false, _stopping = false;
+  void _scheduleSync() {
+    _broadcastTimer?.cancel();
+    _broadcastTimer = Timer(const Duration(milliseconds: 600), () {
+      if (!_stopping) unawaited(sync());
+    });
+  }
   Future<void> sync() async {
     if (_running || _stopping) return;
     _running = true;
@@ -129,6 +139,9 @@ class SyncEngine extends Cubit<SyncStatus> {
       )..where((c) => c.scope.equals(scope)))
           .getSingleOrNull();
       while (!_stopping) {
+        // Yield between pages so a long initial pull keeps the UI responsive.
+        await Future<void>.delayed(Duration.zero);
+        if (_stopping) break;
         final result = Map<String, dynamic>.from(
           await client.rpc(
             'pull_changes',
@@ -214,6 +227,7 @@ class SyncEngine extends Cubit<SyncStatus> {
     _stopping = true;
     _stopConnectivity();
     _timer?.cancel();
+    _broadcastTimer?.cancel();
     await _outbox?.cancel();
     if (_channel != null) await client.removeChannel(_channel!);
     while (_running) {

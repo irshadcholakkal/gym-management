@@ -14,8 +14,9 @@ import 'theme.dart';
 import 'workspace.dart';
 
 class GymProApp extends StatefulWidget {
-  const GymProApp({super.key, this.client});
+  const GymProApp({super.key, this.client, this.repository});
   final SupabaseClient? client;
+  final AuthRepository? repository;
   @override
   State<GymProApp> createState() => _GymProAppState();
 }
@@ -36,7 +37,7 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
     _semantics = WidgetsBinding.instance.ensureSemantics();
     WidgetsBinding.instance.addObserver(this);
     if (widget.client != null) {
-      _auth = SupabaseAuthRepository(widget.client!);
+      _auth = widget.repository ?? SupabaseAuthRepository(widget.client!);
       _session = SessionCubit(_auth!);
       _subscription = _session!.stream.listen((_) => _refresh.refresh());
     }
@@ -200,6 +201,7 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
     _refresh.dispose();
     _appearance.dispose();
     _session?.close();
+    unawaited(_auth?.dispose());
     _semantics.dispose();
     super.dispose();
   }

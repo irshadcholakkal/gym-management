@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../domain/access.dart';
@@ -16,7 +20,10 @@ abstract interface class AuthRepository {
   Future<void> signOut();
   Future<void> resetPassword(String email, String? redirect);
   Future<GymAccess> access();
+  Future<GymAccess?> cachedAccess();
+  Future<void> cacheAccess(GymAccess access);
   Future<void> createGym(String name);
+  Future<void> dispose();
 }
 
 class NoGymAccessException extends AuthException {
@@ -27,8 +34,87 @@ class NoGymAccessException extends AuthException {
 }
 
 class SupabaseAuthRepository implements AuthRepository {
-  SupabaseAuthRepository(this.client);
+  SupabaseAuthRepository(this.client) {
+    // Mirror every live session into a separate backup key. A token refresh
+    // rejected with a 4xx makes gotrue delete its own storage entry, which
+    // used to log the user out permanently; the backup lets the next launch
+    // restore the session while the refresh token is still valid.
+    _backupSubscription = client.auth.onAuthStateChange.listen((event) {
+      final session = event.session;
+      if (session != null) {
+        unawaited(_persistBackup(jsonEncode(session.toJson())));
+      } else if (event.event == AuthChangeEvent.signedOut) {
+        // Keep the backup on an unexpected sign-out (storage glitch, token
+        // rotation race); only a deliberate sign-out clears it.
+        if (_signingOut) unawaited(_persistBackup(null));
+      }
+    });
+  }
   final SupabaseClient client;
+  static const _sessionBackupKey = 'gympro_session_backup';
+  static const _accessCacheKey = 'gympro_last_access';
+  bool _signingOut = false;
+  StreamSubscription<AuthState>? _backupSubscription;
+
+  Future<void> _persistBackup(String? value) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (value == null) {
+        await prefs.remove(_sessionBackupKey);
+      } else {
+        await prefs.setString(_sessionBackupKey, value);
+      }
+    } catch (_) {
+      // Backup storage is best-effort; never block auth on it.
+    }
+  }
+
+  /// Restores a preserved session after the auth storage lost it.
+  /// Returns true when a session is available afterwards.
+  Future<bool> restoreBackupSession() async {
+    try {
+      if (client.auth.currentSession != null) return true;
+      final prefs = await SharedPreferences.getInstance();
+      final backup = prefs.getString(_sessionBackupKey);
+      if (backup == null) return false;
+      final session =
+          Session.fromJson(jsonDecode(backup) as Map<String, dynamic>);
+      final refreshToken = session?.refreshToken;
+      if (refreshToken == null || refreshToken.isEmpty) return false;
+      await client.auth.setSession(refreshToken);
+      return client.auth.currentSession != null;
+    } catch (_) {
+      // An expired or revoked backup token must never block sign-in.
+      return false;
+    }
+  }
+
+  @override
+  Future<GymAccess?> cachedAccess() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return GymAccess.fromJson(prefs.getString(_accessCacheKey));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> cacheAccess(GymAccess access) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_accessCacheKey, jsonEncode(access.toJson()));
+    } catch (_) {
+      // Best effort; the next successful access check rewrites it.
+    }
+  }
+
+  @override
+  Future<void> dispose() async {
+    await _backupSubscription?.cancel();
+    _backupSubscription = null;
+  }
+
   @override
   Future<void> createGym(String name) async {
     await client.rpc('create_own_gym', params: {'p_name': name.trim()});
@@ -66,7 +152,15 @@ class SupabaseAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<void> signOut() => client.auth.signOut();
+  Future<void> signOut() async {
+    // Mark intent first so the backup listener clears the preserved session.
+    _signingOut = true;
+    try {
+      await client.auth.signOut();
+    } finally {
+      _signingOut = false;
+    }
+  }
   @override
   Future<bool> signUp({
     required String fullName,

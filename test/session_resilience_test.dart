@@ -17,6 +17,7 @@ class NetworkAuth implements AuthRepository {
   Object? failure;
   Completer<GymAccess>? pending;
   bool authenticated = true;
+  GymAccess? cached;
   @override
   Stream<AuthState> get changes => events.stream;
   @override
@@ -29,6 +30,10 @@ class NetworkAuth implements AuthRepository {
     return pending == null ? Future.value(testAccess) : pending!.future;
   }
 
+  @override
+  Future<GymAccess?> cachedAccess() async => cached;
+  @override
+  Future<void> cacheAccess(GymAccess access) async => cached = access;
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -62,6 +67,25 @@ void main() {
     final session = SessionCubit(auth);
     await Future<void>.delayed(Duration.zero);
     expect(session.state.status, SessionStatus.denied);
+    await session.close();
+    await auth.events.close();
+  });
+  test(
+      'Initial launch with no network opens the last verified access instead of logging out',
+      () async {
+    final auth = NetworkAuth()
+      ..failure = TimeoutException('Offline')
+      ..cached = testAccess;
+    final session = SessionCubit(auth);
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    expect(session.state.status, SessionStatus.signedIn);
+    expect(session.state.access, testAccess);
+    // The retained workspace also re-verifies in the background once the
+    // network returns, without any additional failure loop.
+    auth.failure = null;
+    await session.restore();
+    expect(session.state.status, SessionStatus.signedIn);
     await session.close();
     await auth.events.close();
   });

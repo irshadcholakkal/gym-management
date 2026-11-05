@@ -32,9 +32,13 @@ class _NotificationBellState extends State<NotificationBell> {
     return StreamBuilder<List<CachedRecord>>(
       stream: repo.watch('notifications'),
       builder: (context, snapshot) {
-        final fresh = (snapshot.data ?? []).where((r) {
-          if (r.kind != 'notifications') return false;
-          final data = jsonDecode(r.payload) as Map;
+        // Decode every payload once per emission; the bell rebuilds often.
+        final decoded = (snapshot.data ?? [])
+            .where((r) => r.kind == 'notifications')
+            .map((r) => (record: r, data: jsonDecode(r.payload) as Map))
+            .toList();
+        final fresh = decoded.where((entry) {
+          final data = entry.data;
           final created = DateTime.tryParse(
             data['created_at']?.toString() ?? '',
           );
@@ -42,10 +46,10 @@ class _NotificationBellState extends State<NotificationBell> {
               data['read_at'] == null &&
               created != null &&
               !created.isBefore(openedAt) &&
-              announced.add(r.id);
+              announced.add(entry.record.id);
         }).toList();
         if (fresh.isNotEmpty) {
-          final id = fresh.first.id;
+          final id = fresh.first.record.id;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
@@ -68,12 +72,11 @@ class _NotificationBellState extends State<NotificationBell> {
             );
           });
         }
-        final count = (snapshot.data ?? []).where((r) {
-          if (r.kind != 'notifications') return false;
-          final data = jsonDecode(r.payload) as Map;
-          return currentNotification(data, repo.access.userId) &&
-              data['read_at'] == null;
-        }).length;
+        final count = decoded
+            .where((entry) =>
+                currentNotification(entry.data, repo.access.userId) &&
+                entry.data['read_at'] == null)
+            .length;
         return IconButton(
           tooltip: count == 0 ? 'Notifications' : '$count unread notifications',
           onPressed: () => context.go('/notifications'),
@@ -184,9 +187,15 @@ class _NotificationCenterState extends State<NotificationCenter> {
                 return const Center(child: CircularProgressIndicator());
               }
               final labels = RecordLabels(snapshot.data!);
-              final records = snapshot.data!.where((r) {
-                if (r.kind != 'notifications' || wrongGym) return false;
-                final m = jsonDecode(r.payload) as Map;
+              // Lookups reuse the decoded payloads; decoding inside the sort
+              // comparator froze the inbox as notifications accumulated.
+              final decoded = snapshot.data!
+                  .where((r) => r.kind == 'notifications')
+                  .map((r) => (record: r, data: labels.lookup('notifications', r.id)))
+                  .toList();
+              final records = decoded.where((entry) {
+                final r = entry.record, m = entry.data;
+                if (wrongGym) return false;
                 if (!currentNotification(m, repo.access.userId)) {
                   return false;
                 }
@@ -202,12 +211,8 @@ class _NotificationCenterState extends State<NotificationCenter> {
                     filter == 'reminders' && !warning;
               }).toList()
                 ..sort(
-                  (a, b) => ((jsonDecode(b.payload) as Map)['created_at'] ?? '')
-                      .toString()
-                      .compareTo(
-                        ((jsonDecode(a.payload) as Map)['created_at'] ?? '')
-                            .toString(),
-                      ),
+                  (a, b) => ((b.data['created_at'] ?? '').toString())
+                      .compareTo((a.data['created_at'] ?? '').toString()),
                 );
               if (records.isEmpty) {
                 return Center(
@@ -222,7 +227,9 @@ class _NotificationCenterState extends State<NotificationCenter> {
                 itemCount: records.length,
                 separatorBuilder: (context, index) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
-                  final r = records[index], m = jsonDecode(r.payload) as Map;
+                  final entry = records[index],
+                      r = entry.record,
+                      m = entry.data;
                   final unread = m['read_at'] == null;
                   final warning = [
                     'expired',

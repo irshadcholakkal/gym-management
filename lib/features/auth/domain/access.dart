@@ -51,4 +51,33 @@ class GymAccess {
     }
     return true;
   }
+
+  /// Persisted as the last server-verified access so a network failure on a
+  /// later launch can restore the workspace instead of locking the user out.
+  Map<String, dynamic> toJson() => {
+        'gym_id': gymId,
+        'user_id': userId,
+        'name': name,
+        'gym_name': gymName,
+        'role': role.name,
+        'options': options,
+      };
+
+  static GymAccess? fromJson(Object? json) {
+    if (json is! Map) return null;
+    final gymId = json['gym_id'], userId = json['user_id'];
+    if (gymId is! String || userId is! String) return null;
+    try {
+      return GymAccess(
+        gymId: gymId,
+        userId: userId,
+        name: json['name'] as String? ?? 'Team member',
+        gymName: json['gym_name'] as String? ?? 'Gym',
+        role: GymRole.values.byName(json['role'] as String),
+        options: Map<String, bool>.from(json['options'] as Map? ?? {}),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 }

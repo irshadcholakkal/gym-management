@@ -61,6 +61,9 @@ class SessionCubit extends Cubit<SessionState> {
             previous.gymName != access.gymName) {
           emit(SessionState(SessionStatus.signedIn, access: access));
         }
+        // Persist the last server-verified access so a later launch with no
+        // network can still open the workspace instead of failing closed.
+        unawaited(repository.cacheAccess(access));
       }
     } on NoGymAccessException {
       if (!isClosed && generation == _generation) {
@@ -82,9 +85,21 @@ class SessionCubit extends Cubit<SessionState> {
       if (!isClosed && generation == _generation) {
         // A failed background network check must not destroy an already
         // authorized, local-first workspace. Explicit access denials above
-        // still take effect immediately; initial access still fails closed.
+        // still take effect immediately; a fresh launch fails open with the
+        // last verified access instead of locking the user out.
         if (state.status == SessionStatus.signedIn && repository.signedIn) {
           return;
+        }
+        if (repository.signedIn) {
+          final cached = await repository.cachedAccess();
+          if (!isClosed &&
+              generation == _generation &&
+              repository.signedIn &&
+              cached != null) {
+            emit(SessionState(SessionStatus.signedIn, access: cached));
+            unawaited(restore());
+            return;
+          }
         }
         emit(
           const SessionState(

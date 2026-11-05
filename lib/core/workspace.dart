@@ -923,6 +923,13 @@ class _RecordDirectoryState extends State<RecordDirectory> {
   Timer? _statusTimer, _searchTimer;
   List<CachedRecord>? _labelRecords;
   RecordLabels? _labels;
+  final _lowerPayloads = <String, String>{};
+  /// Lowercasing every full payload on each rebuild froze large directories.
+  String _searchText(CachedRecord r) =>
+      _lowerPayloads.putIfAbsent(
+        '${r.kind}:${r.id}',
+        () => r.payload.toLowerCase(),
+      );
   @override
   void initState() {
     super.initState();
@@ -1116,6 +1123,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                 if (!identical(_labelRecords, snapshot.data)) {
                   _labelRecords = snapshot.data;
                   _labels = RecordLabels(snapshot.data!);
+                  _lowerPayloads.clear();
                 }
                 final labels = _labels!;
                 final records = snapshot.data!
@@ -1124,7 +1132,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                           r.kind == kind &&
                           (focusedRecord != null
                               ? r.id == focusedRecord
-                              : (r.payload.toLowerCase().contains(query) ||
+                              : (_searchText(r).contains(query) ||
                                       labels
                                           .title(
                                             kind,
