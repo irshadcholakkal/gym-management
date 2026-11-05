@@ -23,8 +23,17 @@ class SessionCubit extends Cubit<SessionState> {
         ++_generation;
         emit(const SessionState(SessionStatus.recovery));
       } else {
+        if (event.event == AuthChangeEvent.signedOut ||
+            (event.event == AuthChangeEvent.signedIn &&
+                state.access != null &&
+                event.session?.user.id != state.access!.userId)) {
+          ++_generation;
+          _restoring = null;
+        }
         unawaited(restore());
       }
+    }, onError: (Object error, StackTrace stack) {
+      // Offline token refresh errors must not escape into the UI.
     });
     _accessTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (state.status == SessionStatus.signedIn) unawaited(restore());
@@ -35,9 +44,26 @@ class SessionCubit extends Cubit<SessionState> {
   StreamSubscription<AuthState>? _subscription;
   int _generation = 0;
   Timer? _accessTimer;
-  Future<void> restore() async {
+  Future<void>? _restoring;
+
+  Future<void> restore() {
+    if (isClosed) return Future<void>.value();
+    final pending = _restoring;
+    if (pending != null) return pending;
+    late final Future<void> check;
+    check = _restore().whenComplete(() {
+      if (identical(_restoring, check)) _restoring = null;
+    });
+    return _restoring = check;
+  }
+
+  Future<void> _restore() async {
     if (isClosed) return;
     final generation = ++_generation;
+    if (!repository.signedIn && repository is SupabaseAuthRepository) {
+      await (repository as SupabaseAuthRepository).restoreBackupSession();
+      if (isClosed || generation != _generation) return;
+    }
     if (!repository.signedIn) {
       emit(const SessionState(SessionStatus.signedOut));
       return;
@@ -97,7 +123,6 @@ class SessionCubit extends Cubit<SessionState> {
               repository.signedIn &&
               cached != null) {
             emit(SessionState(SessionStatus.signedIn, access: cached));
-            unawaited(restore());
             return;
           }
         }

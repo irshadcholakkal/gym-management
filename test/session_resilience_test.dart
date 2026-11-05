@@ -18,6 +18,7 @@ class NetworkAuth implements AuthRepository {
   Completer<GymAccess>? pending;
   bool authenticated = true;
   GymAccess? cached;
+  int accessCalls = 0;
   @override
   Stream<AuthState> get changes => events.stream;
   @override
@@ -26,6 +27,7 @@ class NetworkAuth implements AuthRepository {
   bool get requiresPasswordSetup => false;
   @override
   Future<GymAccess> access() async {
+    accessCalls++;
     if (failure != null) throw failure!;
     return pending == null ? Future.value(testAccess) : pending!.future;
   }
@@ -39,6 +41,29 @@ class NetworkAuth implements AuthRepository {
 }
 
 void main() {
+  test('Resume and refresh bursts share one access check', () async {
+    final auth = NetworkAuth()..pending = Completer<GymAccess>();
+    final session = SessionCubit(auth);
+    final checks = List.generate(20, (_) => session.restore());
+    expect(auth.accessCalls, 1);
+    auth.pending!.complete(testAccess);
+    await Future.wait(checks);
+    expect(session.state.status, SessionStatus.signedIn);
+    await session.close();
+    await auth.events.close();
+  });
+
+  test('Offline refresh stream errors retain the current workspace', () async {
+    final auth = NetworkAuth();
+    final session = SessionCubit(auth);
+    await session.restore();
+    auth.events.addError(TimeoutException('Token refresh offline'));
+    await Future<void>.delayed(Duration.zero);
+    expect(session.state.status, SessionStatus.signedIn);
+    await session.close();
+    await auth.events.close();
+  });
+
   test(
       'Background network failure retains the authorized workspace; access denial still locks it',
       () async {

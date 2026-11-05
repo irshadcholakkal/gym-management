@@ -48,15 +48,26 @@ class SupabaseAuthRepository implements AuthRepository {
         // rotation race); only a deliberate sign-out clears it.
         if (_signingOut) unawaited(_persistBackup(null));
       }
+    }, onError: (Object error, StackTrace stack) {
+      // Retryable refresh failures must not become unhandled stream errors.
     });
+    final session = client.auth.currentSession;
+    if (session != null) {
+      unawaited(_persistBackup(jsonEncode(session.toJson())));
+    }
   }
   final SupabaseClient client;
   static const _sessionBackupKey = 'gympro_session_backup';
   static const _accessCacheKey = 'gympro_last_access';
   bool _signingOut = false;
   StreamSubscription<AuthState>? _backupSubscription;
+  Future<void> _backupWrites = Future<void>.value();
+  Future<bool>? _restoringBackup;
 
-  Future<void> _persistBackup(String? value) async {
+  Future<void> _persistBackup(String? value) =>
+      _backupWrites = _backupWrites.then((_) => _writeBackup(value));
+
+  Future<void> _writeBackup(String? value) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       if (value == null) {
@@ -71,9 +82,14 @@ class SupabaseAuthRepository implements AuthRepository {
 
   /// Restores a preserved session after the auth storage lost it.
   /// Returns true when a session is available afterwards.
-  Future<bool> restoreBackupSession() async {
+  Future<bool> restoreBackupSession() => _restoringBackup ??=
+      _restoreBackupSession().whenComplete(() => _restoringBackup = null);
+
+  Future<bool> _restoreBackupSession() async {
     try {
+      if (_signingOut) return false;
       if (client.auth.currentSession != null) return true;
+      await _backupWrites;
       final prefs = await SharedPreferences.getInstance();
       final backup = prefs.getString(_sessionBackupKey);
       if (backup == null) return false;
@@ -81,7 +97,9 @@ class SupabaseAuthRepository implements AuthRepository {
           Session.fromJson(jsonDecode(backup) as Map<String, dynamic>);
       final refreshToken = session?.refreshToken;
       if (refreshToken == null || refreshToken.isEmpty) return false;
-      await client.auth.setSession(refreshToken);
+      await client.auth
+          .recoverSession(backup)
+          .timeout(const Duration(seconds: 15));
       return client.auth.currentSession != null;
     } catch (_) {
       // An expired or revoked backup token must never block sign-in.
@@ -93,7 +111,8 @@ class SupabaseAuthRepository implements AuthRepository {
   Future<GymAccess?> cachedAccess() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      return GymAccess.fromJson(prefs.getString(_accessCacheKey));
+      final access = GymAccess.fromJson(prefs.getString(_accessCacheKey));
+      return access?.userId == client.auth.currentUser?.id ? access : null;
     } catch (_) {
       return null;
     }
@@ -157,10 +176,14 @@ class SupabaseAuthRepository implements AuthRepository {
     _signingOut = true;
     try {
       await client.auth.signOut();
+      await _persistBackup(null);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_accessCacheKey);
     } finally {
       _signingOut = false;
     }
   }
+
   @override
   Future<bool> signUp({
     required String fullName,
