@@ -32,10 +32,17 @@ Deno.serve(async (req: Request) => {
       if (checkError) throw checkError;
       if (used?.length) return new Response('{"error":"Username is already in use"}', { status: 409, headers });
     }
-    const { data, error } = await admin.auth.admin.inviteUserByEmail(input.email.trim().toLowerCase(), {
-      data: { full_name: input.full_name.trim(), requires_password_setup: true }, redirectTo: `${origin}/`,
+    // Preflight also checks the migration before sending any invitation email.
+    const { data: existingInvite, error: lookupError } = await admin.rpc('find_invited_employee', {
+      p_gym: input.gym_id, p_actor: user.id, p_email: input.email.trim().toLowerCase(),
     });
-    if (error) throw error;
+    if (lookupError) throw lookupError;
+    const { data, error } = existingInvite
+      ? await admin.auth.admin.getUserById(existingInvite)
+      : await admin.auth.admin.inviteUserByEmail(input.email.trim().toLowerCase(), {
+        data: { full_name: input.full_name.trim(), requires_password_setup: true }, redirectTo: `${origin}/`,
+      });
+    if (error || !data.user) throw error ?? new Error('Invitation account unavailable');
     const { error: attachError } = await admin.rpc('attach_invited_employee_access', {
       p_gym: input.gym_id, p_actor: user.id, p_user: data.user.id,
       p_name: input.full_name.trim(), p_email: input.email.trim().toLowerCase(),
@@ -47,7 +54,13 @@ Deno.serve(async (req: Request) => {
       console.error('Invitation requires reconciliation', data.user.id, input.gym_id, attachError.code);
       return new Response('{"error":"Invitation sent, but gym access could not be assigned. Contact your administrator for reconciliation."}', { status: 409, headers });
     }
-    return new Response(JSON.stringify({ user_id: data.user.id, invited: true }), { headers });
+    // Prefer this employee workspace even if a failed invite previously led
+    // the account to create an unrelated gym. Membership/RLS still authorize it.
+    const { error: preferenceError } = await admin.auth.admin.updateUserById(data.user.id, {
+      app_metadata: { ...data.user.app_metadata, employee_gym_id: input.gym_id },
+    });
+    if (preferenceError) console.error('Employee workspace preference failed', preferenceError.code);
+    return new Response(JSON.stringify({ user_id: data.user.id, invited: !existingInvite, access_assigned: true }), { headers });
   } catch (error) {
     console.error('Invitation failed', error instanceof Error ? error.name : 'unknown');
     return new Response('{"error":"Unable to invite employee. Check the address and existing account status."}', { status: 400, headers });

@@ -209,16 +209,24 @@ class SupabaseAuthRepository implements AuthRepository {
   @override
   Future<GymAccess> access() async {
     final user = client.auth.currentUser!;
-    final rows = await client
+    var query = client
         .from('gym_users')
         // Select the available membership columns so pre-migration databases
         // can still authorize existing users. Missing options keep role defaults.
         .select('*, gyms(name)')
         .eq('user_id', user.id)
-        .eq('active', true)
-        .order('created_at')
-        .limit(1);
+        .eq('active', true);
+    final employeeGym = user.appMetadata['employee_gym_id'];
+    if (employeeGym is String && employeeGym.isNotEmpty) {
+      query = query.eq('gym_id', employeeGym);
+    }
+    final rows = await query.order('created_at').limit(1);
     if (rows.isEmpty) {
+      if (user.invitedAt != null || employeeGym != null) {
+        throw const AuthException(
+          'Your employee invitation is waiting for gym access. Ask your gym administrator to add your email in Team again, then sign in again.',
+        );
+      }
       final memberships = await client
           .from('gym_users')
           .select('id')

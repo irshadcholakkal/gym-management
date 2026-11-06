@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto';
 const db = new PGlite({ extensions: { btree_gist } });
 await db.exec(`
   create role anon; create role authenticated; create role service_role bypassrls;
-  create schema auth; create table auth.users(id uuid primary key,email_confirmed_at timestamptz,raw_user_meta_data jsonb not null default '{}');
+  create schema auth; create table auth.users(id uuid primary key,email text,invited_at timestamptz,created_at timestamptz not null default now(),email_confirmed_at timestamptz,raw_user_meta_data jsonb not null default '{}');
   create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
   grant usage on schema auth to authenticated; grant execute on function auth.uid() to authenticated;
   create schema realtime; create table realtime.messages(extension text);
@@ -312,6 +312,22 @@ await check('Receipt HTML design persists per gym, with role checks and concurre
   await assert.rejects(()=>rpc('save_receipt_design',[gymA,'Other gym',2]),e=>e.code==='42501');
   await login(trainer);await assert.rejects(()=>rpc('save_receipt_design',[gymA,'Trainer',2]),e=>e.code==='42501');
   await login(a);await assert.rejects(()=>rpc('save_receipt_design',[gymA,'',2]));
+});
+await check('Orphaned invitations cannot create a gym and can be repaired only by an authorized administrator',async()=>{
+  await db.exec('reset role');
+  const invited=randomUUID();
+  await db.query("insert into auth.users(id,email,invited_at,email_confirmed_at) values($1,'invited@example.com',now(),now())",[invited]);
+  await login(invited);
+  await assert.rejects(()=>rpc('create_own_gym',['Accidental gym']),e=>e.code==='42501');
+  await assert.rejects(()=>rpc('find_invited_employee',[gymA,a,'invited@example.com']),e=>e.code==='42501');
+  await db.exec('reset role');await db.exec('set role service_role');
+  await assert.rejects(()=>rpc('find_invited_employee',[gymA,trainer,'invited@example.com']),e=>e.code==='42501');
+  assert.equal(await rpc('find_invited_employee',[gymA,a,'INVITED@example.com']),invited);
+  await rpc('attach_invited_employee_access',[gymA,a,invited,'Invited employee','invited@example.com','trainer','','','invited.employee',{}]);
+  assert.equal(await rpc('find_invited_employee',[gymA,a,'invited@example.com']),null);
+  await db.exec('reset role');
+  const attached=(await db.query('select g.role,e.access_role from public.gym_users g join public.employees e using(gym_id,user_id) where g.gym_id=$1 and g.user_id=$2',[gymA,invited])).rows[0];
+  assert.equal(attached.role,'trainer');assert.equal(attached.access_role,'trainer');
 });
 console.log(`${passed} database integration checks passed. Hosted Auth, Realtime and Storage were stubbed.`);
 await db.close();

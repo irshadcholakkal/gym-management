@@ -569,6 +569,14 @@ Future<void> showServerOperation(
                       }
                       await sync.sync();
                       if (dialogContext.mounted) Navigator.pop(dialogContext);
+                      if (type == 'invite' && parentContext.mounted) {
+                        ScaffoldMessenger.of(parentContext).showSnackBar(
+                          const SnackBar(
+                              content: Text(
+                            'Employee access saved. New employees receive an invitation. Previously invited employees can sign in or use Forgot password.',
+                          )),
+                        );
+                      }
                       if (receipt != null && parentContext.mounted) {
                         final finalized = receipt;
                         await Navigator.of(parentContext).push(
