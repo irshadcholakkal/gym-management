@@ -41,6 +41,26 @@ class NetworkAuth implements AuthRepository {
 }
 
 void main() {
+  test('Password recovery stays open through refresh and access checks',
+      () async {
+    final auth = NetworkAuth();
+    final session = SessionCubit(auth);
+    await session.restore();
+    auth.events.add(const AuthState(AuthChangeEvent.passwordRecovery, null));
+    await Future<void>.delayed(Duration.zero);
+    expect(session.state.status, SessionStatus.recovery);
+    auth.events.add(const AuthState(AuthChangeEvent.tokenRefreshed, null));
+    await Future<void>.delayed(Duration.zero);
+    await session.restore();
+    expect(session.state.status, SessionStatus.recovery);
+    auth.authenticated = false;
+    auth.events.add(const AuthState(AuthChangeEvent.signedOut, null));
+    await Future<void>.delayed(Duration.zero);
+    expect(session.state.status, SessionStatus.signedOut);
+    await session.close();
+    await auth.events.close();
+  });
+
   test('Resume and refresh bursts share one access check', () async {
     final auth = NetworkAuth()..pending = Completer<GymAccess>();
     final session = SessionCubit(auth);

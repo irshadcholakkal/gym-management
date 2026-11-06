@@ -13,7 +13,8 @@ import 'theme.dart';
 import 'workspace.dart';
 
 class GymProApp extends StatefulWidget {
-  const GymProApp({super.key, this.client, this.repository});
+  const GymProApp({super.key, this.client, this.repository, this.loginMessage});
+  final String? loginMessage;
   final SupabaseClient? client;
   final AuthRepository? repository;
   @override
@@ -103,8 +104,12 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
         ),
         GoRoute(
           path: '/login',
-          builder: (context, _) => LoginPage(
+          builder: (context, state) => LoginPage(
             repository: _auth!,
+            initialMessage: state.uri.queryParameters['password'] == 'saved'
+                ? 'Your password is saved. Sign in with your email, employee ID or username.'
+                : widget.loginMessage,
+            initialReset: widget.loginMessage != null,
             onCreateAccount: () => context.go('/register'),
           ),
         ),
@@ -117,8 +122,11 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
         ),
         GoRoute(
           path: '/recovery',
-          builder: (_, _) =>
-              LoginPage(repository: _auth!, recoveryClient: widget.client),
+          builder: (_, _) => LoginPage(
+            repository: _auth!,
+            recoveryClient: widget.client,
+            onPasswordSaved: () => _router.go('/login?password=saved'),
+          ),
         ),
         GoRoute(
           path: '/access',

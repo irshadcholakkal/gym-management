@@ -11,10 +11,16 @@ class LoginPage extends StatefulWidget {
     required this.repository,
     this.recoveryClient,
     this.onCreateAccount,
+    this.onPasswordSaved,
+    this.initialMessage,
+    this.initialReset = false,
   });
   final AuthRepository repository;
   final SupabaseClient? recoveryClient;
   final VoidCallback? onCreateAccount;
+  final VoidCallback? onPasswordSaved;
+  final String? initialMessage;
+  final bool initialReset;
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
@@ -22,12 +28,21 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _form = GlobalKey<FormState>();
   final _email = TextEditingController(), _password = TextEditingController();
+  final _confirmPassword = TextEditingController();
   bool _busy = false, _obscure = true, _reset = false;
   String? _message;
+  @override
+  void initState() {
+    super.initState();
+    _message = widget.initialMessage;
+    _reset = widget.initialReset;
+  }
+
   @override
   void dispose() {
     _email.dispose();
     _password.dispose();
+    _confirmPassword.dispose();
     super.dispose();
   }
 
@@ -46,6 +61,7 @@ class _LoginPageState extends State<LoginPage> {
           ),
         );
         await widget.repository.signOut();
+        widget.onPasswordSaved?.call();
       } else if (_reset) {
         await widget.repository.resetPassword(
           _email.text,
@@ -113,6 +129,14 @@ class _LoginPageState extends State<LoginPage> {
                         textAlign: TextAlign.center,
                       ),
                       SizedBox(height: 32),
+                      if (recovery)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Text(
+                            'Create your password to finish joining your gym. Use at least 12 characters. Then sign in with your email, employee ID or username.',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
                       if (!recovery)
                         TextFormField(
                           controller: _email,
@@ -154,7 +178,7 @@ class _LoginPageState extends State<LoginPage> {
                                 : AutofillHints.password,
                           ],
                           decoration: InputDecoration(
-                            labelText: 'Password',
+                            labelText: recovery ? 'New password' : 'Password',
                             prefixIcon: Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
                               tooltip:
@@ -174,6 +198,22 @@ class _LoginPageState extends State<LoginPage> {
                                       ? 'Use at least 12 characters'
                                       : 'Enter your password'
                                   : null,
+                        ),
+                      ],
+                      if (recovery) ...[
+                        SizedBox(height: 16),
+                        TextFormField(
+                          controller: _confirmPassword,
+                          obscureText: _obscure,
+                          autofillHints: const [AutofillHints.newPassword],
+                          decoration: const InputDecoration(
+                            labelText: 'Confirm password',
+                            prefixIcon: Icon(Icons.lock_outline),
+                          ),
+                          validator: (value) => value == _password.text
+                              ? null
+                              : 'Passwords do not match',
+                          onFieldSubmitted: (_) => _busy ? null : _submit(),
                         ),
                       ],
                       if (_message != null)

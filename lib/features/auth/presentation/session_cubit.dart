@@ -20,6 +20,7 @@ class SessionCubit extends Cubit<SessionState> {
       : super(const SessionState(SessionStatus.loading)) {
     _subscription = repository.changes.listen((event) {
       if (event.event == AuthChangeEvent.passwordRecovery) {
+        _passwordRecovery = true;
         ++_generation;
         emit(const SessionState(SessionStatus.recovery));
       } else {
@@ -29,6 +30,7 @@ class SessionCubit extends Cubit<SessionState> {
                 event.session?.user.id != state.access!.userId)) {
           ++_generation;
           _restoring = null;
+          _passwordRecovery = false;
         }
         unawaited(restore());
       }
@@ -45,6 +47,7 @@ class SessionCubit extends Cubit<SessionState> {
   int _generation = 0;
   Timer? _accessTimer;
   Future<void>? _restoring;
+  bool _passwordRecovery = false;
 
   Future<void> restore() {
     if (isClosed) return Future<void>.value();
@@ -68,7 +71,7 @@ class SessionCubit extends Cubit<SessionState> {
       emit(const SessionState(SessionStatus.signedOut));
       return;
     }
-    if (repository.requiresPasswordSetup) {
+    if (_passwordRecovery || repository.requiresPasswordSetup) {
       emit(const SessionState(SessionStatus.recovery));
       return;
     }

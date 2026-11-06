@@ -33,7 +33,7 @@ Deno.serve(async (req: Request) => {
       if (used?.length) return new Response('{"error":"Username is already in use"}', { status: 409, headers });
     }
     const { data, error } = await admin.auth.admin.inviteUserByEmail(input.email.trim().toLowerCase(), {
-      data: { full_name: input.full_name.trim(), requires_password_setup: true }, redirectTo: `${origin}/#/recovery`,
+      data: { full_name: input.full_name.trim(), requires_password_setup: true }, redirectTo: `${origin}/`,
     });
     if (error) throw error;
     const { error: attachError } = await admin.rpc('attach_invited_employee_access', {

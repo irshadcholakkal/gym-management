@@ -34,7 +34,7 @@ class NoGymAccessException extends AuthException {
 }
 
 class SupabaseAuthRepository implements AuthRepository {
-  SupabaseAuthRepository(this.client) {
+  SupabaseAuthRepository(this.client, {this.passwordRecovery = false}) {
     // Mirror every live session into a separate backup key. A token refresh
     // rejected with a 4xx makes gotrue delete its own storage entry, which
     // used to log the user out permanently; the backup lets the next launch
@@ -57,6 +57,7 @@ class SupabaseAuthRepository implements AuthRepository {
     }
   }
   final SupabaseClient client;
+  bool passwordRecovery;
   static const _sessionBackupKey = 'gympro_session_backup';
   static const _accessCacheKey = 'gympro_last_access';
   bool _signingOut = false;
@@ -145,6 +146,7 @@ class SupabaseAuthRepository implements AuthRepository {
   bool get signedIn => client.auth.currentSession != null;
   @override
   bool get requiresPasswordSetup =>
+      passwordRecovery ||
       client.auth.currentUser?.userMetadata?['requires_password_setup'] == true;
   @override
   Future<void> signIn(String email, String password) async {
@@ -174,6 +176,7 @@ class SupabaseAuthRepository implements AuthRepository {
   Future<void> signOut() async {
     // Mark intent first so the backup listener clears the preserved session.
     _signingOut = true;
+    passwordRecovery = false;
     try {
       await client.auth.signOut();
       await _persistBackup(null);
