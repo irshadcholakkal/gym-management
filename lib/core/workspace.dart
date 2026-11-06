@@ -37,6 +37,7 @@ import 'admin_actions.dart';
 import 'record_details.dart';
 import 'record_labels.dart';
 import 'directory_index.dart';
+import 'directory_filters.dart';
 import '../features/payments/domain/discount_totals.dart';
 import 'database/database.dart';
 import 'sync/sync_engine.dart';
@@ -1033,26 +1034,25 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                             : Theme.of(context).colorScheme.primary)),
                 initialValue: filter,
                 itemBuilder: (_) => [
-                  for (final status in (kind == 'subscriptions'
-                      ? [
-                          'all',
-                          'active',
-                          'expiring_soon',
-                          'expired',
-                          'paused',
-                          'scheduled_renewal',
-                          'pending_activation',
-                          'draft',
-                          'cancelled',
-                          'pending'
-                        ]
-                      : ['all', 'active', 'archived', 'pending']))
+                  for (final option in directoryFilters(kind))
                     CheckedPopupMenuItem<String>(
-                        value: status,
-                        checked: filter == status,
-                        child: Text(status == 'all'
-                            ? 'All statuses'
-                            : displayLabel(status))),
+                      value: option.value,
+                      checked: filter == option.value,
+                      child: SizedBox(
+                        width: 260,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(option.label),
+                              Text(option.description,
+                                  style: Theme.of(context).textTheme.bodySmall),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
                 onSelected: (value) => setState(() {
                   filter = value;
@@ -1145,22 +1145,19 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                             : (query.isEmpty ||
                                     index.search['${r.kind}:${r.id}']!
                                         .contains(query)) &&
-                                (filter == 'all' ||
-                                    filter == 'pending' &&
-                                        r.syncState != 'synced' ||
-                                    (kind == 'subscriptions'
-                                        ? MembershipStatus(
-                                                labels.lookup(kind, r.id))
-                                            .matchesFilter(filter)
-                                        : labels.lookup(kind, r.id)['status'] ==
-                                            filter))))
+                                matchesDirectoryFilter(kind,
+                                    labels.lookup(kind, r.id), r.syncState,
+                                    filter)))
                     .toList();
                 if (records.isEmpty) {
                   return Card(
                     child: EmptyPanel(
                       icon: Icons.folder_open_outlined,
-                      title: 'No records yet',
-                      message: editable
+                      title: filter != 'all' || query.isNotEmpty
+                          ? 'No matching records' : 'No records yet',
+                      message: filter != 'all' || query.isNotEmpty
+                          ? 'Try another filter or search to find records.'
+                          : editable
                           ? 'Create your first record. Changes appear immediately, even before sync.'
                           : 'Authorized records will appear here after synchronization.',
                     ),
