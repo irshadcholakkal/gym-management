@@ -9,7 +9,7 @@ class AuthCallback {
       '#',
     );
     final start = RegExp(
-      r'(^|[#?&])(access_token|refresh_token|code|error|error_code|error_description)=',
+      r'(^|[#?&])(token_hash|access_token|refresh_token|code|error|error_code|error_description)=',
     ).firstMatch(fragment);
     if (start != null) {
       final offset = start.start + (start.group(1)!.isEmpty ? 0 : 1);
@@ -30,7 +30,13 @@ class AuthCallback {
 
   final Uri uri;
   final Map<String, String> parameters;
+  String? get passwordToken =>
+      ['invite', 'recovery'].contains(parameters['type']) &&
+              (parameters['token_hash']?.isNotEmpty ?? false)
+          ? parameters['token_hash']
+          : null;
   bool get isCallback => [
+        'token_hash',
         'access_token',
         'code',
         'error',

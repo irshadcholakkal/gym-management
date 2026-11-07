@@ -4,6 +4,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../payments/domain/money.dart';
+import '../../members/member_identity.dart';
 
 abstract final class ReceiptPdf {
   /// Accept only an immutable, server-issued receipt, never an outbox payment.
@@ -43,9 +44,20 @@ abstract final class ReceiptPdf {
           ),
           pw.Divider(height: 32),
           pw.Text(
-            'Member: ${data['member_name']}  (#${data['member_number']})',
+            'Member: ${data['member_name']}  (ID ${memberId(data['member_number'])})',
           ),
           pw.Text('Package: ${data['package_name'] ?? 'Membership'}'),
+          if (data['invoices'] is List)
+            pw.TableHelper.fromTextArray(headers: [
+              'Invoice',
+              'Payment allocated'
+            ], data: [
+              for (final line in data['invoices'] as List)
+                [
+                  line['invoice_id'].toString(),
+                  Money.format(line['amount_minor'] as int, currency)
+                ],
+            ]),
           pw.Text(
             'Membership: ${data['start_date'] ?? '-'} to ${end?.toIso8601String().substring(0, 10) ?? '-'}',
           ),

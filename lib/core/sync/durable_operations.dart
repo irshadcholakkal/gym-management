@@ -14,6 +14,43 @@ class DurableOperations implements OperationsRepository {
   DurableOperations(this.inner, this.workspace);
   final OperationsRepository inner;
   final WorkspaceRepository workspace;
+  @override
+  Future<void> setMembershipDeleted(String subscription, int version,
+          bool deleted, String reason, String operation) =>
+      _command(
+          'membership_delete',
+          subscription,
+          operation,
+          {
+            'subscription': subscription,
+            'version': version,
+            'delete': deleted,
+            'reason': reason
+          },
+          (id) => inner.setMembershipDeleted(
+              subscription, version, deleted, reason, id));
+  @override
+  Future<Map<String, dynamic>> memberInvoiceQuote(String member) =>
+      inner.memberInvoiceQuote(member);
+  @override
+  Future<Map<String, dynamic>> payAllInvoices(
+          String member,
+          List<Map<String, dynamic>> invoices,
+          String method,
+          String reference,
+          String operation) =>
+      _command(
+          'pay_all',
+          member,
+          operation,
+          {
+            'member': member,
+            'invoices': invoices,
+            'method': method,
+            'reference': reference
+          },
+          (id) =>
+              inner.payAllInvoices(member, invoices, method, reference, id));
   Future<T> _command<T>(
     String action,
     String subject,
@@ -25,14 +62,14 @@ class DurableOperations implements OperationsRepository {
         kind = 'server:$action',
         payload = jsonEncode(request);
     final id = await db.transaction(() async {
-      final previous =
-          await (db.select(db.syncOperations)..where(
-                (o) =>
-                    o.scope.equals(workspace.scope) &
-                    o.kind.equals(kind) &
-                    o.recordId.equals(subject),
-              ))
-              .getSingleOrNull();
+      final previous = await (db.select(db.syncOperations)
+            ..where(
+              (o) =>
+                  o.scope.equals(workspace.scope) &
+                  o.kind.equals(kind) &
+                  o.recordId.equals(subject),
+            ))
+          .getSingleOrNull();
       if (previous != null) {
         if (previous.payload != payload) {
           throw StateError(
@@ -41,9 +78,7 @@ class DurableOperations implements OperationsRepository {
         }
         return previous.id;
       }
-      await db
-          .into(db.syncOperations)
-          .insert(
+      await db.into(db.syncOperations).insert(
             SyncOperationsCompanion.insert(
               id: operation,
               scope: workspace.scope,
@@ -70,7 +105,8 @@ class DurableOperations implements OperationsRepository {
     }
     await (db.delete(
       db.syncOperations,
-    )..where((o) => o.scope.equals(workspace.scope) & o.id.equals(id))).go();
+    )..where((o) => o.scope.equals(workspace.scope) & o.id.equals(id)))
+        .go();
     return result;
   }
 
@@ -82,28 +118,29 @@ class DurableOperations implements OperationsRepository {
     String operation, {
     int discountMinor = 0,
     String discountReason = '',
-  }) => _command(
-    'subscribe',
-    member,
-    operation,
-    {
-      'member': member,
-      'package': package,
-      'start': start,
-      if (discountMinor != 0 || discountReason.trim().isNotEmpty) ...{
-        'discount_minor': discountMinor,
-        'discount_reason': discountReason.trim(),
-      },
-    },
-    (id) => inner.subscribe(
-      member,
-      package,
-      start,
-      id,
-      discountMinor: discountMinor,
-      discountReason: discountReason,
-    ),
-  );
+  }) =>
+      _command(
+        'subscribe',
+        member,
+        operation,
+        {
+          'member': member,
+          'package': package,
+          'start': start,
+          if (discountMinor != 0 || discountReason.trim().isNotEmpty) ...{
+            'discount_minor': discountMinor,
+            'discount_reason': discountReason.trim(),
+          },
+        },
+        (id) => inner.subscribe(
+          member,
+          package,
+          start,
+          id,
+          discountMinor: discountMinor,
+          discountReason: discountReason,
+        ),
+      );
   @override
   Future<Map<String, dynamic>> pay(
     String invoice,
@@ -111,12 +148,18 @@ class DurableOperations implements OperationsRepository {
     String method,
     String reference,
     String operation,
-  ) => _command('pay', invoice, operation, {
-    'invoice': invoice,
-    'amount': amount,
-    'method': method,
-    'reference': reference,
-  }, (id) => inner.pay(invoice, amount, method, reference, id));
+  ) =>
+      _command(
+          'pay',
+          invoice,
+          operation,
+          {
+            'invoice': invoice,
+            'amount': amount,
+            'method': method,
+            'reference': reference,
+          },
+          (id) => inner.pay(invoice, amount, method, reference, id));
   @override
   Future<void> transition(
     String subscription,
@@ -126,28 +169,29 @@ class DurableOperations implements OperationsRepository {
     String reason,
     String operation, {
     int days = 0,
-  }) => _command(
-    'transition',
-    subscription,
-    operation,
-    {
-      'subscription': subscription,
-      'version': version,
-      'action': action,
-      'date': date,
-      'reason': reason,
-      'days': days,
-    },
-    (id) => inner.transition(
-      subscription,
-      version,
-      action,
-      date,
-      reason,
-      id,
-      days: days,
-    ),
-  );
+  }) =>
+      _command(
+        'transition',
+        subscription,
+        operation,
+        {
+          'subscription': subscription,
+          'version': version,
+          'action': action,
+          'date': date,
+          'reason': reason,
+          'days': days,
+        },
+        (id) => inner.transition(
+          subscription,
+          version,
+          action,
+          date,
+          reason,
+          id,
+          days: days,
+        ),
+      );
   @override
   Future<void> changePackage(
     String subscription,
@@ -156,29 +200,36 @@ class DurableOperations implements OperationsRepository {
     String policy,
     String reason,
     String operation,
-  ) => _command(
-    'change_package',
-    subscription,
-    operation,
-    {
-      'subscription': subscription,
-      'version': version,
-      'package': package,
-      'policy': policy,
-      'reason': reason,
-    },
-    (id) =>
-        inner.changePackage(subscription, version, package, policy, reason, id),
-  );
+  ) =>
+      _command(
+        'change_package',
+        subscription,
+        operation,
+        {
+          'subscription': subscription,
+          'version': version,
+          'package': package,
+          'policy': policy,
+          'reason': reason,
+        },
+        (id) => inner.changePackage(
+            subscription, version, package, policy, reason, id),
+      );
   @override
   Future<void> reversePayment(
     String payment,
     String reason,
     String operation,
-  ) => _command('reverse', payment, operation, {
-    'payment': payment,
-    'reason': reason,
-  }, (id) => inner.reversePayment(payment, reason, id));
+  ) =>
+      _command(
+          'reverse',
+          payment,
+          operation,
+          {
+            'payment': payment,
+            'reason': reason,
+          },
+          (id) => inner.reversePayment(payment, reason, id));
   @override
   Future<void> invite(Map<String, String> fields) => inner.invite(fields);
   @override

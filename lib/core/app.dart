@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../features/auth/data/auth_repository.dart';
+import '../features/auth/data/auth_callback.dart';
 import '../features/auth/presentation/login_page.dart';
 import '../features/auth/presentation/session_cubit.dart';
 import '../features/auth/presentation/signup_page.dart';
@@ -13,7 +14,13 @@ import 'theme.dart';
 import 'workspace.dart';
 
 class GymProApp extends StatefulWidget {
-  const GymProApp({super.key, this.client, this.repository, this.loginMessage});
+  const GymProApp(
+      {super.key,
+      this.client,
+      this.repository,
+      this.loginMessage,
+      this.passwordSetupCallback});
+  final AuthCallback? passwordSetupCallback;
   final String? loginMessage;
   final SupabaseClient? client;
   final AuthRepository? repository;
@@ -29,9 +36,11 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
   final _appearance = ThemePreference();
   late final GoRouter _router;
   String? _pendingNotification;
+  AuthCallback? _passwordSetupCallback;
   @override
   void initState() {
     super.initState();
+    _passwordSetupCallback = widget.passwordSetupCallback;
     unawaited(_appearance.restore());
     // Semantics are intentionally NOT forced globally. Forcing them used to
     // intercept iOS Safari taps with accessibility DOM nodes, so the on-screen
@@ -52,6 +61,14 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
           return state.uri.path == '/setup' ? null : '/setup';
         }
         final session = _session!.state, path = state.uri.path;
+        if (_passwordSetupCallback != null) {
+          return path == '/recovery'
+              ? null
+              : Uri(path: '/recovery', queryParameters: {
+                  'token_hash': _passwordSetupCallback!.passwordToken!,
+                  'type': _passwordSetupCallback!.parameters['type']!,
+                }).toString();
+        }
         if (session.status != SessionStatus.signedIn &&
             path == '/notifications' &&
             state.uri.queryParameters.containsKey('notification')) {
@@ -125,7 +142,11 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
           builder: (_, _) => LoginPage(
             repository: _auth!,
             recoveryClient: widget.client,
-            onPasswordSaved: () => _router.go('/login?password=saved'),
+            passwordSetupCallback: _passwordSetupCallback,
+            onPasswordSaved: () {
+              _passwordSetupCallback = null;
+              _router.go('/login?password=saved');
+            },
           ),
         ),
         GoRoute(

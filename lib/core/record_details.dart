@@ -1,7 +1,12 @@
+import 'status_badge.dart';
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
+import '../features/subscriptions/membership_actions.dart';
+import '../features/auth/domain/access.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import '../features/members/member_photos.dart';
+import '../features/members/member_identity.dart';
 import '../features/payments/domain/money.dart';
 import '../features/subscriptions/domain/membership_status.dart';
 import 'database/database.dart';
@@ -15,7 +20,9 @@ class RecordDetailsPanel extends StatelessWidget {
       required this.record,
       required this.repository,
       this.photos,
+      this.onOperation,
       this.actions = const []});
+  final void Function(String action, CachedRecord record)? onOperation;
   final CachedRecord record;
   final WorkspaceRepository repository;
   final MemberPhotos? photos;
@@ -36,14 +43,17 @@ class RecordDetailsPanel extends StatelessWidget {
             IconButton(
                 tooltip: 'Close details',
                 onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close_rounded)),
+                icon: const Icon(CupertinoIcons.xmark)),
           ])),
       const Divider(height: 1),
       Expanded(
           child: ColoredBox(
               color: Theme.of(context).scaffoldBackgroundColor,
               child: RecordDetails(
-                  record: record, repository: repository, photos: photos))),
+                  record: record,
+                  repository: repository,
+                  photos: photos,
+                  onOperation: onOperation))),
       if (actions.isNotEmpty) ...[
         const Divider(height: 1),
         Padding(
@@ -58,7 +68,16 @@ class RecordDetailsPanel extends StatelessWidget {
                       spacing: 4,
                       runSpacing: 4,
                       alignment: WrapAlignment.end,
-                      children: actions)),
+                      children: [
+                        for (final action in actions)
+                          if (action is IconButton && action.tooltip != null)
+                            TextButton.icon(
+                                onPressed: action.onPressed,
+                                icon: action.icon,
+                                label: Text(action.tooltip!))
+                          else
+                            action
+                      ])),
             ])),
       ],
     ]));
@@ -88,16 +107,21 @@ String _kindName(String kind) => switch (kind) {
     };
 
 IconData _kindIcon(String kind) => switch (kind) {
-      'members' || 'employees' => Icons.person_outline_rounded,
-      'membership_packages' => Icons.inventory_2_outlined,
-      'subscriptions' => Icons.calendar_month_outlined,
-      'payments' || 'invoices' => Icons.account_balance_wallet_outlined,
-      _ => Icons.receipt_long_outlined,
+      'members' || 'employees' => CupertinoIcons.person,
+      'membership_packages' => CupertinoIcons.cube_box,
+      'subscriptions' => CupertinoIcons.calendar,
+      'payments' || 'invoices' => CupertinoIcons.creditcard,
+      _ => CupertinoIcons.doc_text,
     };
 
 class RecordDetails extends StatelessWidget {
   const RecordDetails(
-      {super.key, required this.record, required this.repository, this.photos});
+      {super.key,
+      required this.record,
+      required this.repository,
+      this.photos,
+      this.onOperation});
+  final void Function(String action, CachedRecord record)? onOperation;
   final MemberPhotos? photos;
   final CachedRecord record;
   final WorkspaceRepository repository;
@@ -123,6 +147,11 @@ class RecordDetails extends StatelessWidget {
           final package = current.kind == 'membership_packages';
           String value(String key) {
             final raw = m[key];
+            if (key == 'member_number') {
+              return memberId(raw).isEmpty
+                  ? 'Assigned after sync'
+                  : memberId(raw);
+            }
             if (raw == null || raw.toString().trim().isEmpty) return '';
             if ([
               'joining_date',
@@ -147,24 +176,24 @@ class RecordDetails extends StatelessWidget {
                     _DetailValue(label, value(key), icon),
               ];
           final contact = fields([
-            ('phone', 'Phone number', Icons.phone_outlined),
-            ('email', 'Email address', Icons.mail_outline_rounded),
-            ('address', 'Address', Icons.location_on_outlined),
-            ('occupation', 'Occupation', Icons.work_outline_rounded),
+            ('phone', 'Phone number', CupertinoIcons.phone),
+            ('email', 'Email address', CupertinoIcons.mail),
+            ('address', 'Address', CupertinoIcons.location),
+            ('occupation', 'Occupation', CupertinoIcons.briefcase),
           ]);
           final information = fields([
-            ('member_number', 'Member number', Icons.badge_outlined),
-            ('employee_number', 'Employee number', Icons.badge_outlined),
+            if (member) ('member_number', 'Member ID', CupertinoIcons.number),
+            ('employee_number', 'Employee number', CupertinoIcons.number),
             ('username', 'Username', Icons.alternate_email_rounded),
             ('access_role', 'Access role', Icons.admin_panel_settings_outlined),
-            ('joining_date', 'Member since', Icons.calendar_today_outlined),
-            ('start_date', 'Membership starts', Icons.event_available_outlined),
-            ('due_date', 'Payment due', Icons.event_outlined),
-            ('created_at', 'Created on', Icons.calendar_today_outlined),
-            ('receipt_number', 'Receipt number', Icons.receipt_long_outlined),
+            ('joining_date', 'Member since', CupertinoIcons.calendar),
+            ('start_date', 'Membership starts', CupertinoIcons.calendar),
+            ('due_date', 'Payment due', CupertinoIcons.calendar),
+            ('created_at', 'Created on', CupertinoIcons.calendar),
+            ('receipt_number', 'Receipt number', CupertinoIcons.doc_text),
             ('reference', 'Reference', Icons.tag_outlined),
-            ('method', 'Payment method', Icons.credit_card_outlined),
-            ('read_at', 'Read on', Icons.mark_email_read_outlined),
+            ('method', 'Payment method', CupertinoIcons.creditcard),
+            ('read_at', 'Read on', CupertinoIcons.envelope_open),
           ]);
           final finalDay =
               DateTime.tryParse(m['end_exclusive']?.toString() ?? '');
@@ -172,17 +201,17 @@ class RecordDetails extends StatelessWidget {
             information.add(_DetailValue(
                 'Final valid membership day',
                 displayDate(finalDay.subtract(const Duration(days: 1))),
-                Icons.event_available_outlined));
+                CupertinoIcons.calendar));
           }
           final packageDetails = <_DetailValue>[
             if (m['duration_value'] != null)
               _DetailValue(
                   'Membership duration',
                   '${m['duration_value']} ${displayLabel(m['duration_unit']?.toString() ?? 'days').toLowerCase()}',
-                  Icons.date_range_outlined),
+                  CupertinoIcons.calendar),
             if (m['allowed_pause_days'] != null)
               _DetailValue('Pause allowance', '${m['allowed_pause_days']} days',
-                  Icons.pause_circle_outline_rounded),
+                  CupertinoIcons.pause_circle),
           ];
           final money = <_DetailValue>[
             for (final entry in {
@@ -198,7 +227,7 @@ class RecordDetails extends StatelessWidget {
                 _DetailValue(
                     entry.value,
                     Money.format(m[entry.key] as int, currency),
-                    Icons.payments_outlined),
+                    CupertinoIcons.money_dollar_circle),
             if (current.kind == 'invoices' && m['total_minor'] is int)
               _DetailValue(
                   'Balance due',
@@ -207,8 +236,14 @@ class RecordDetails extends StatelessWidget {
                           (m['paid_minor'] as int? ?? 0) -
                           (m['credit_minor'] as int? ?? 0),
                       currency),
-                  Icons.account_balance_wallet_outlined),
+                  CupertinoIcons.creditcard),
           ];
+          final memberPayments = records
+              .where((r) =>
+                  r.kind == 'payments' &&
+                  (jsonDecode(r.payload) as Map)['member_id'] == current.id)
+              .map((r) => r.id)
+              .toSet();
           final related = records.where((r) {
             if (!['subscriptions', 'payments', 'invoices', 'receipts']
                 .contains(r.kind)) {
@@ -218,11 +253,17 @@ class RecordDetails extends StatelessWidget {
               return false;
             }
             final data = jsonDecode(r.payload) as Map;
+            if (data['deleted_at'] != null ||
+                data['deleted_with_membership'] != null) {
+              return false;
+            }
             return data['member_id'] == current.id ||
                 (r.kind == 'receipts' &&
+                    memberPayments.contains(data['payment_id'])) ||
+                (r.kind == 'receipts' &&
                     m['member_number'] != null &&
-                    (data['snapshot'] as Map?)?['member_number'] ==
-                        m['member_number']);
+                    (data['snapshot'] as Map?)?['member_number']?.toString() ==
+                        m['member_number'].toString());
           }).toList()
             ..sort((a, b) => ((jsonDecode(b.payload) as Map)['created_at'] ??
                     (jsonDecode(b.payload) as Map)['start_date'] ??
@@ -281,20 +322,11 @@ class RecordDetails extends StatelessWidget {
                                     ]),
                                 const SizedBox(height: 18),
                                 Wrap(spacing: 8, runSpacing: 8, children: [
-                                  if (status != null)
-                                    Chip(
-                                        avatar: Icon(Icons.circle,
-                                            size: 8, color: scheme.primary),
-                                        label: Text(displayLabel(status))),
-                                  Chip(
-                                      avatar: Icon(
-                                          current.syncState == 'synced'
-                                              ? Icons.cloud_done_outlined
-                                              : Icons.cloud_upload_outlined,
-                                          size: 16),
-                                      label: Text(current.syncState == 'synced'
+                                  if (status != null) StatusBadge(status),
+                                  StatusBadge(current.syncState,
+                                      label: current.syncState == 'synced'
                                           ? 'Up to date'
-                                          : displayLabel(current.syncState))),
+                                          : null),
                                   if (package &&
                                       repository.access.finances &&
                                       m['price_minor'] is int)
@@ -314,12 +346,74 @@ class RecordDetails extends StatelessWidget {
                                           .bodySmall),
                                 ],
                               ]))),
+                  if (member)
+                    _MemberActivity(
+                        member: current,
+                        records: related,
+                        repository: repository,
+                        labels: labels,
+                        onOperation: onOperation),
+                  if (!member &&
+                      repository.access.finances &&
+                      onOperation != null)
+                    _RecordOperations(
+                        record: current,
+                        onOperation: onOperation!,
+                        access: repository.access,
+                        hasPaymentHistory: records.any((r) {
+                          if (r.kind != 'invoices') return false;
+                          final invoice = jsonDecode(r.payload) as Map;
+                          return invoice['subscription_id'] == current.id &&
+                              ((invoice['paid_minor'] as int? ?? 0) > 0 ||
+                                  (invoice['credit_minor'] as int? ?? 0) > 0);
+                        })),
                   if (member && photos != null)
                     _DetailSection(
                         title: 'Profile photo',
                         subtitle: 'A familiar face for your front desk.',
                         child: MemberPhotoEditor(
                             photos: photos!, member: current)),
+                  if (current.kind == 'subscriptions' &&
+                      m['deleted_at'] == null &&
+                      repository.access.finances)
+                    _DetailSection(
+                        title: 'Invoices & payments',
+                        subtitle:
+                            'Membership dates and payment status are separate. Record a payment only after receiving it.',
+                        child: Column(children: [
+                          for (final invoice in records.where((r) =>
+                              r.kind == 'invoices' &&
+                              (jsonDecode(r.payload)
+                                      as Map)['subscription_id'] ==
+                                  current.id))
+                            Builder(builder: (context) {
+                              final data = jsonDecode(invoice.payload) as Map;
+                              final due = (data['total_minor'] as int? ?? 0) -
+                                  (data['paid_minor'] as int? ?? 0) -
+                                  (data['credit_minor'] as int? ?? 0);
+                              return ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: const Icon(CupertinoIcons.doc_text),
+                                  title: Text(data['status'] == 'voided'
+                                      ? 'Invoice voided'
+                                      : 'Balance due: ${Money.format(due, data['currency'] as String? ?? 'AED')}'),
+                                  subtitle: Text(
+                                      'Due ${displayDate(data['due_date'])}'),
+                                  trailing: due > 0 &&
+                                          data['status'] != 'voided' &&
+                                          onOperation != null
+                                      ? OutlinedButton.icon(
+                                          onPressed: () =>
+                                              onOperation!('pay', invoice),
+                                          icon: const Icon(
+                                              CupertinoIcons.creditcard,
+                                              size: 18),
+                                          label: const Text('Record payment'))
+                                      : StatusBadge(
+                                          data['status']?.toString() ??
+                                              'unpaid'));
+                            }),
+                        ])),
                   if (contact.isNotEmpty)
                     _DetailSection(
                         title: 'Contact & personal details',
@@ -334,9 +428,9 @@ class RecordDetails extends StatelessWidget {
                         title: 'Member & package',
                         child: _DetailGrid(values: [
                           _DetailValue('Member', labels.member(m),
-                              Icons.person_outline_rounded),
+                              CupertinoIcons.person),
                           _DetailValue('Package', labels.package(m),
-                              Icons.inventory_2_outlined),
+                              CupertinoIcons.cube_box),
                         ])),
                   if (information.isNotEmpty)
                     _DetailSection(
@@ -360,88 +454,190 @@ class RecordDetails extends StatelessWidget {
                           title: heading,
                           child: SelectableText(value(key),
                               style: Theme.of(context).textTheme.bodyLarge)),
-                  if (member)
-                    _DetailSection(
-                        title: 'Membership & payment history',
-                        subtitle:
-                            '${related.length} linked ${related.length == 1 ? 'record' : 'records'}',
-                        child: Column(children: [
-                          if (related.isEmpty)
-                            Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
-                                child: Column(children: [
-                                  Icon(Icons.history_rounded,
-                                      size: 32, color: scheme.onSurfaceVariant),
-                                  const SizedBox(height: 12),
-                                  const Text(
-                                      'No membership or payment activity yet.',
-                                      textAlign: TextAlign.center),
-                                ])),
-                          for (var i = 0; i < related.length; i++) ...[
-                            if (i > 0) const Divider(height: 24),
-                            Builder(builder: (context) {
-                              final item = related[i];
-                              final data = jsonDecode(item.payload)
-                                  as Map<String, dynamic>;
-                              return Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                        padding: const EdgeInsets.all(10),
-                                        decoration: BoxDecoration(
-                                            color: scheme.secondaryContainer,
-                                            borderRadius:
-                                                BorderRadius.circular(14)),
-                                        child: Icon(_kindIcon(item.kind),
-                                            color: scheme.primary, size: 20)),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                        child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                          Text(
-                                              item.kind == 'subscriptions'
-                                                  ? labels.package(data)
-                                                  : _kindName(item.kind),
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .titleMedium),
-                                          Text(
-                                              [
-                                                displayDate(
-                                                    data['start_date'] ??
-                                                        data['created_at']),
-                                                if (data['status'] != null)
-                                                  displayLabel(
-                                                      data['status'].toString())
-                                              ]
-                                                  .where((s) => s.isNotEmpty)
-                                                  .join(' · '),
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodySmall),
-                                          if (repository.access.finances &&
-                                              data['total_minor'] is int)
-                                            Text(
-                                                Money.format(
-                                                    data['total_minor'] as int,
-                                                    data['currency']
-                                                            as String? ??
-                                                        'AED'),
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .titleMedium),
-                                        ])),
-                                  ]);
-                            }),
-                          ],
-                        ])),
                 ]),
           );
         },
       );
+}
+
+class _MemberActivity extends StatefulWidget {
+  const _MemberActivity(
+      {required this.member,
+      required this.records,
+      required this.repository,
+      required this.labels,
+      this.onOperation});
+  final CachedRecord member;
+  final List<CachedRecord> records;
+  final WorkspaceRepository repository;
+  final RecordLabels labels;
+  final void Function(String, CachedRecord)? onOperation;
+
+  @override
+  State<_MemberActivity> createState() => _MemberActivityState();
+}
+
+class _MemberActivityState extends State<_MemberActivity> {
+  String selected = 'subscriptions';
+  @override
+  Widget build(BuildContext context) {
+    final finance = widget.repository.access.finances;
+    final sections = <String, String>{
+      'subscriptions': 'Memberships',
+      if (finance) ...{
+        'payments': 'Payments',
+        'invoices': 'Invoices',
+        'receipts': 'Receipts'
+      },
+    };
+    final active = sections.containsKey(selected) ? selected : 'subscriptions';
+    final records = widget.records.where((r) => r.kind == active).toList();
+    final unpaid = widget.records.where((r) {
+      if (r.kind != 'invoices' || r.syncState != 'synced') return false;
+      final data = jsonDecode(r.payload) as Map;
+      return !['void', 'voided'].contains(data['status']) &&
+          (data['total_minor'] as int? ?? 0) -
+                  (data['paid_minor'] as int? ?? 0) -
+                  (data['credit_minor'] as int? ?? 0) >
+              0;
+    }).toList();
+    return _DetailSection(
+        title: 'Member activity',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              for (final section in sections.entries)
+                ChoiceChip(
+                  label: Text(
+                      '${section.value} (${widget.records.where((r) => r.kind == section.key).length})'),
+                  selected: active == section.key,
+                  onSelected: (_) => setState(() => selected = section.key),
+                ),
+            ]),
+            if (finance && widget.onOperation != null) ...[
+              const SizedBox(height: 12),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                FilledButton.icon(
+                  onPressed: widget.member.syncState == 'synced'
+                      ? () => widget.onOperation!('subscribe', widget.member)
+                      : null,
+                  icon: const Icon(CupertinoIcons.add),
+                  label: const Text('New membership'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: unpaid.isEmpty
+                      ? null
+                      : () => widget.onOperation!('pay_all', widget.member),
+                  icon: const Icon(CupertinoIcons.checkmark_alt_circle),
+                  label: const Text('Pay all invoices'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: unpaid.isEmpty
+                      ? null
+                      : () {
+                          if (unpaid.length == 1) {
+                            widget.onOperation!('pay', unpaid.single);
+                          } else {
+                            setState(() => selected = 'invoices');
+                          }
+                        },
+                  icon: const Icon(CupertinoIcons.creditcard),
+                  label: const Text('Pay invoice'),
+                ),
+              ]),
+            ],
+            const SizedBox(height: 12),
+            if (records.isEmpty)
+              Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Text('No ${sections[active]!.toLowerCase()} yet.')),
+            for (final item in records)
+              Builder(builder: (context) {
+                final data = jsonDecode(item.payload) as Map<String, dynamic>;
+                final amount = data['amount_minor'] ??
+                    data['total_minor'] ??
+                    (data['snapshot'] as Map?)?['amount_minor'];
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(_kindIcon(item.kind)),
+                  title: Text(item.kind == 'subscriptions'
+                      ? widget.labels.package(data)
+                      : item.kind == 'receipts'
+                          ? 'Receipt #${data['receipt_number'] ?? ''}'
+                          : _kindName(item.kind)),
+                  subtitle: Text([
+                    displayDate(data['start_date'] ??
+                        data['created_at'] ??
+                        data['due_date']),
+                    if (finance && amount is int)
+                      Money.format(
+                          amount, data['currency'] as String? ?? 'AED'),
+                  ].where((s) => s.isNotEmpty).join(' · ')),
+                  trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                    if (data['status'] != null)
+                      StatusBadge(item.kind == 'subscriptions'
+                          ? MembershipStatus(data).status
+                          : data['status'].toString()),
+                    const Icon(CupertinoIcons.chevron_right),
+                  ]),
+                  onTap: () => showDialog<void>(
+                      context: context,
+                      builder: (_) => RecordDetailsPanel(
+                          record: item,
+                          repository: widget.repository,
+                          onOperation: widget.onOperation)),
+                );
+              }),
+          ],
+        ));
+  }
+}
+
+class _RecordOperations extends StatelessWidget {
+  const _RecordOperations(
+      {required this.record,
+      required this.onOperation,
+      required this.access,
+      this.hasPaymentHistory = false});
+  final GymAccess access;
+  final bool hasPaymentHistory;
+  final CachedRecord record;
+  final void Function(String, CachedRecord) onOperation;
+  @override
+  Widget build(BuildContext context) {
+    if (record.kind == 'subscriptions') {
+      return Padding(
+          padding: const EdgeInsets.only(top: 16),
+          child: MembershipActions(
+              record: record,
+              access: access,
+              onAction: onOperation,
+              hasPaymentHistory: hasPaymentHistory));
+    }
+    final data = jsonDecode(record.payload) as Map<String, dynamic>;
+    final balance = (data['total_minor'] as int? ?? 0) -
+        (data['paid_minor'] as int? ?? 0) -
+        (data['credit_minor'] as int? ?? 0);
+    final actions = <(String, String, IconData)>[
+      if (record.kind == 'invoices' && balance > 0 && data['status'] != 'void')
+        ('pay', 'Record payment', CupertinoIcons.creditcard),
+      if (record.kind == 'receipts')
+        ('receipt', 'Open receipt & print', CupertinoIcons.printer),
+    ];
+    if (actions.isEmpty) return const SizedBox.shrink();
+    return Padding(
+        padding: const EdgeInsets.only(top: 16),
+        child: Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final (action, label, icon) in actions)
+            OutlinedButton.icon(
+                onPressed: record.syncState == 'synced'
+                    ? () => onOperation(action, record)
+                    : null,
+                icon: Icon(icon),
+                label: Text(label)),
+        ]));
+  }
 }
 
 class _DetailValue {

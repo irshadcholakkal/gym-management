@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/record_labels.dart';
+import '../members/member_identity.dart';
 import 'domain/membership_status.dart';
 
 Future<void> showMembershipWhatsApp(
@@ -11,7 +12,7 @@ Future<void> showMembershipWhatsApp(
   required String gym,
 }) async {
   final status = MembershipStatus(subscription);
-  final name = member['full_name']?.toString() ?? 'Member';
+  final name = memberNameWithId(member, fallback: 'Member');
   final lastDay = status.end?.subtract(const Duration(days: 1));
   final expiry = lastDay == null ? 'the expiry date' : displayDate(lastDay);
   final templates = <String, String>{

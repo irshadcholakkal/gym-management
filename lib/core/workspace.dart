@@ -1,3 +1,5 @@
+import '../features/subscriptions/membership_deletion.dart';
+import 'status_badge.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import '../features/notifications/push_notification_controls.dart';
 import '../features/receipts/presentation/receipt_design_editor.dart';
@@ -14,6 +16,8 @@ import '../features/subscriptions/domain/membership_status.dart';
 import '../features/subscriptions/membership_whatsapp.dart';
 
 import '../features/members/member_photos.dart';
+import '../features/payments/pay_all_invoices.dart';
+import '../features/members/member_identity.dart';
 
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
@@ -57,6 +61,45 @@ const destinations = <(String, String, IconData)>[
   ('/sync', 'Sync center', CupertinoIcons.cloud),
   ('/settings', 'Settings', CupertinoIcons.slider_horizontal_3),
 ];
+
+Future<void> openRecordDetails(
+        BuildContext context,
+        CachedRecord record,
+        WorkspaceRepository repository,
+        MemberPhotos? photos,
+        List<Widget> actions) =>
+    showDialog<void>(
+        context: context,
+        builder: (_) => RecordDetailsPanel(
+              record: record,
+              repository: repository,
+              photos: photos,
+              actions: record.kind == 'subscriptions'
+                  ? const []
+                  : actions.whereType<IconButton>().toList(),
+              onOperation: (action, target) {
+                if (action == 'pay_all') {
+                  showPayAllInvoices(context, target);
+                } else if (action == 'delete' || action == 'restore') {
+                  showMembershipDeletion(context, target,
+                      restore: action == 'restore');
+                } else if (['pause', 'resume', 'extend', 'cancel']
+                    .contains(action)) {
+                  showServerOperation(context, 'transition',
+                      record: target, initialAction: action);
+                } else if (action == 'package') {
+                  showAdjustment(context, target, packageChange: true);
+                } else if (action == 'invoices' || action == 'receipt') {
+                  Navigator.of(context)
+                      .popUntil((route) => route is! PopupRoute);
+                  context.go(action == 'invoices'
+                      ? '/payments?subscription=${Uri.encodeQueryComponent(target.id)}'
+                      : '/receipts?record=${Uri.encodeQueryComponent(target.id)}');
+                } else {
+                  showServerOperation(context, action, record: target);
+                }
+              },
+            ));
 
 class Workspace extends StatefulWidget {
   const Workspace({
@@ -546,6 +589,7 @@ class Dashboard extends StatelessWidget {
         final invoices = all
             .where((r) => r.kind == 'invoices')
             .map((r) => jsonDecode(r.payload) as Map)
+            .where((data) => data['status'] != 'voided')
             .toList();
         final balance = invoices.fold<int>(
           0,
@@ -797,15 +841,11 @@ class Dashboard extends StatelessWidget {
                                 .secondaryContainer,
                             child: Icon(Icons.person_outline),
                           ),
-                          title: Text(m['full_name'] as String),
+                          title: Text(memberNameWithId(m)),
                           subtitle: Text(m['phone'] as String),
-                          trailing: Chip(
-                            label: Text(
-                              r.syncState == 'synced'
-                                  ? m['status'] as String? ?? 'active'
-                                  : r.syncState,
-                            ),
-                          ),
+                          trailing: StatusBadge(r.syncState == 'synced'
+                              ? m['status'] as String? ?? 'active'
+                              : r.syncState),
                         );
                       }),
                   ],
@@ -979,13 +1019,18 @@ class _RecordDirectoryState extends State<RecordDirectory> {
         .value
         .uri
         .queryParameters['record'];
+    final focusedSubscription = GoRouter.maybeOf(context)
+        ?.routeInformationProvider
+        .value
+        .uri
+        .queryParameters['subscription'];
     final editable = kind == 'members' && repo.access.editMembers ||
         kind == 'membership_packages' && repo.access.administer;
     return Focus(
       skipTraversal: true,
       child: Column(
         children: [
-          if (focusedRecord != null)
+          if (focusedRecord != null || focusedSubscription != null)
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
@@ -1066,10 +1111,10 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                   icon: Icon(CupertinoIcons.add),
                 ),
               if (kind == 'subscriptions' && repo.access.finances)
-                IconButton.filled(
-                  tooltip: 'Create membership',
+                FilledButton.icon(
                   onPressed: () => showServerOperation(context, 'subscribe'),
-                  icon: Icon(CupertinoIcons.add),
+                  icon: const Icon(CupertinoIcons.add, size: 18),
+                  label: const Text('New membership'),
                 ),
               if (kind == 'employees' && repo.access.administer)
                 IconButton.filled(
@@ -1140,13 +1185,18 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                 final records = index.records
                     .where((r) =>
                         r.kind == kind &&
+                        (focusedSubscription == null ||
+                            labels.lookup(kind, r.id)['subscription_id'] ==
+                                focusedSubscription) &&
                         (focusedRecord != null
                             ? r.id == focusedRecord
                             : (query.isEmpty ||
                                     index.search['${r.kind}:${r.id}']!
                                         .contains(query)) &&
-                                matchesDirectoryFilter(kind,
-                                    labels.lookup(kind, r.id), r.syncState,
+                                matchesDirectoryFilter(
+                                    kind,
+                                    labels.lookup(kind, r.id),
+                                    r.syncState,
                                     filter)))
                     .toList();
                 if (records.isEmpty) {
@@ -1154,12 +1204,13 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                     child: EmptyPanel(
                       icon: Icons.folder_open_outlined,
                       title: filter != 'all' || query.isNotEmpty
-                          ? 'No matching records' : 'No records yet',
+                          ? 'No matching records'
+                          : 'No records yet',
                       message: filter != 'all' || query.isNotEmpty
                           ? 'Try another filter or search to find records.'
                           : editable
-                          ? 'Create your first record. Changes appear immediately, even before sync.'
-                          : 'Authorized records will appear here after synchronization.',
+                              ? 'Create your first record. Changes appear immediately, even before sync.'
+                              : 'Authorized records will appear here after synchronization.',
                     ),
                   );
                 }
@@ -1187,6 +1238,39 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                   repo.access.administer &&
                                   m['access_role'] != 'owner')
                                 IconButton(
+                                  tooltip: 'Send password setup email',
+                                  icon: const Icon(
+                                      Icons.mark_email_unread_outlined),
+                                  onPressed: () async {
+                                    try {
+                                      await context
+                                          .read<SupabaseClient>()
+                                          .functions
+                                          .invoke('invite-employee', body: {
+                                        'action': 'password_setup',
+                                        'gym_id': repo.access.gymId,
+                                        'user_id': m['user_id'],
+                                      });
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(const SnackBar(
+                                                content: Text(
+                                                    'Password setup email sent. The employee can open it and choose their password directly.')));
+                                      }
+                                    } catch (_) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(const SnackBar(
+                                                content: Text(
+                                                    'Unable to send the password setup email. Check your connection and try again.')));
+                                      }
+                                    }
+                                  },
+                                ),
+                              if (kind == 'employees' &&
+                                  repo.access.administer &&
+                                  m['access_role'] != 'owner')
+                                IconButton(
                                     tooltip: 'Manage access',
                                     onPressed: () =>
                                         showEmployeeAccess(context, r),
@@ -1200,30 +1284,10 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                   ),
                                 ),
                               SizedBox(width: 8),
-                              Chip(
-                                backgroundColor: switch (membership?.status) {
-                                  'expired' || 'cancelled' => Theme.of(context)
-                                      .colorScheme
-                                      .errorContainer,
-                                  'paused' ||
-                                  'expiring_soon' =>
-                                    Theme.of(context)
-                                        .colorScheme
-                                        .secondaryContainer,
-                                  'active' => Theme.of(context)
-                                      .colorScheme
-                                      .secondaryContainer,
-                                  _ => null,
-                                },
-                                label: Text(
-                                  displayLabel(
-                                    membership?.status ??
-                                        (m['status'] ?? 'active').toString(),
-                                  ),
-                                ),
-                              ),
+                              StatusBadge(membership?.status ??
+                                  (m['status'] ?? 'active').toString()),
                               if (r.syncState != 'synced')
-                                Chip(label: Text(displayLabel(r.syncState))),
+                                StatusBadge(r.syncState),
                               if (membership != null && repo.access.finances)
                                 IconButton(
                                   tooltip: 'WhatsApp message',
@@ -1241,7 +1305,9 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                 ),
                               if (editable)
                                 IconButton(
-                                  tooltip: 'Edit record',
+                                  tooltip: kind == 'members'
+                                      ? 'Edit member'
+                                      : 'Edit package',
                                   onPressed: () => showRecordEditor(
                                       context, kind,
                                       record: r),
@@ -1433,28 +1499,40 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                     membership.countdown,
                                 ].join('\n'),
                               ),
-                              trailing: compact
-                                  ? RecordActionsMenu(actions: actions)
-                                  : Row(
+                              trailing: membership != null
+                                  ? Row(
                                       mainAxisSize: MainAxisSize.min,
-                                      children: actions,
-                                    ),
-                              onTap: () => showDialog<void>(
-                                context: context,
-                                builder: (_) => RecordDetailsPanel(
-                                  photos: widget.photos,
-                                  record: r,
-                                  repository: repo,
-                                  actions:
-                                      actions.whereType<IconButton>().toList(),
-                                ),
-                              ),
+                                      children: [
+                                          StatusBadge(membership.status),
+                                          const SizedBox(width: 8),
+                                          OutlinedButton.icon(
+                                              onPressed: () =>
+                                                  openRecordDetails(
+                                                      context,
+                                                      r,
+                                                      repo,
+                                                      widget.photos,
+                                                      actions),
+                                              icon: const Icon(
+                                                  CupertinoIcons.chevron_right,
+                                                  size: 16),
+                                              label: const Text('Open')),
+                                        ])
+                                  : compact
+                                      ? RecordActionsMenu(actions: actions)
+                                      : Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: actions,
+                                        ),
+                              onTap: () => openRecordDetails(
+                                  context, r, repo, widget.photos, actions),
                             );
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 tile,
                                 if (compact &&
+                                    membership == null &&
                                     actions.any((action) =>
                                         action is! IconButton &&
                                         action is! SizedBox))
@@ -1579,6 +1657,11 @@ Future<void> showRecordEditor(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (member && record != null)
+                    Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Text(
+                            'Member ID: ${memberId(data['member_number']).isEmpty ? 'Assigned after sync' : memberId(data['member_number'])}')),
                   for (final f in fields)
                     Padding(
                       padding: EdgeInsets.only(bottom: 14),

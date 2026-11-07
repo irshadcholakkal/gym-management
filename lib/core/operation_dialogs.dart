@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import '../features/employees/employee_access.dart';
 import '../features/auth/domain/access.dart';
 import 'dart:convert';
@@ -17,12 +18,14 @@ import 'sync/sync_engine.dart';
 import 'sync/workspace_repository.dart';
 import 'operation_error.dart';
 import 'record_labels.dart';
+import '../features/members/member_identity.dart';
 import 'calendar_clock_field.dart';
 
 Future<void> showServerOperation(
   BuildContext context,
   String type, {
   CachedRecord? record,
+  String? initialAction,
 }) async {
   final parentContext = context;
   final repo = context.read<WorkspaceRepository>(),
@@ -59,8 +62,13 @@ Future<void> showServerOperation(
   }
   var method = 'cash',
       role = 'trainer',
-      action = values['status'] == 'paused' ? 'resume' : 'pause';
-  String? member = renewal ? values['member_id'] as String? : null,
+      action =
+          initialAction ?? (values['status'] == 'paused' ? 'resume' : 'pause');
+  String? member = renewal
+          ? values['member_id'] as String?
+          : record?.kind == 'members'
+              ? record!.id
+              : null,
       package = renewal ? values['package_id'] as String? : null,
       error;
   var busy = false, attempted = false;
@@ -81,6 +89,11 @@ Future<void> showServerOperation(
         ))
       .get();
   if (!context.mounted) return;
+  final associatedMember = members
+      .where((r) =>
+          r.id ==
+          (record?.kind == 'members' ? record?.id : values['member_id']))
+      .firstOrNull;
   if (!packages.any(
     (p) =>
         p.id == package && (jsonDecode(p.payload) as Map)['status'] == 'active',
@@ -133,9 +146,14 @@ Future<void> showServerOperation(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (associatedMember != null)
+                    Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(memberNameWithId(
+                            jsonDecode(associatedMember.payload) as Map))),
                   Text(
                     type == 'subscribe'
-                        ? 'Choose the membership package and review the amount due.'
+                        ? 'Choose the member, plan and start date. Review the total, then create the membership and its invoice. Payment is recorded separately.'
                         : type == 'pay'
                             ? 'Enter the amount actually received from the member.'
                             : type == 'invite'
@@ -146,15 +164,15 @@ Future<void> showServerOperation(
                   if (type == 'subscribe') ...[
                     DropdownButtonFormField<String>(
                       initialValue: member,
-                      decoration: InputDecoration(labelText: 'Member'),
+                      decoration: InputDecoration(
+                          labelText: '1. Member',
+                          prefixIcon: Icon(CupertinoIcons.person)),
                       items: [
                         for (final r in members)
                           DropdownMenuItem(
                             value: r.id,
                             child: Text(
-                              (jsonDecode(r.payload) as Map)['full_name']
-                                  as String,
-                            ),
+                                memberNameWithId(jsonDecode(r.payload) as Map)),
                           ),
                       ],
                       onChanged: attempted || renewal
@@ -166,7 +184,9 @@ Future<void> showServerOperation(
                     SizedBox(height: 14),
                     DropdownButtonFormField<String>(
                       initialValue: package,
-                      decoration: InputDecoration(labelText: 'Package'),
+                      decoration: InputDecoration(
+                          labelText: '2. Plan',
+                          prefixIcon: Icon(CupertinoIcons.cube_box)),
                       items: [
                         for (final r in packages.where(
                           (p) =>
@@ -186,52 +206,59 @@ Future<void> showServerOperation(
                           v == null ? 'Select an active synced package' : null,
                     ),
                     SizedBox(height: 14),
-                    if (repo.access.canDiscount) ...[
-                      TextFormField(
-                        controller: discount,
-                        autovalidateMode: AutovalidateMode.onUserInteraction,
-                        enabled: !attempted,
-                        keyboardType: TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: InputDecoration(
-                          labelText:
-                              'Special discount (${selectedPackage()['currency'] ?? 'AED'})',
-                          helperText:
-                              'Optional. Applied to the package price before tax.',
-                        ),
-                        onChanged: (_) => update(() {}),
-                        validator: (v) {
-                          try {
-                            final value = Money.parse(
-                              v?.trim().isEmpty ?? true ? '0' : v!,
-                            );
-                            return value >
-                                    (selectedPackage()['price_minor'] as int? ??
-                                        0)
-                                ? 'Discount cannot exceed the package price'
-                                : null;
-                          } catch (_) {
-                            return 'Enter an amount with at most two decimal places';
-                          }
-                        },
-                      ),
-                      SizedBox(height: 14),
-                      if (discountValue() > 0) ...[
-                        TextFormField(
-                          controller: discountReason,
-                          enabled: !attempted,
-                          maxLength: 500,
-                          decoration: InputDecoration(
-                              labelText: 'Discount reason',
-                              prefixIcon: const Icon(Icons.notes_outlined)),
-                          validator: (v) => (v?.trim().isEmpty ?? true)
-                              ? 'Enter a reason for this discount'
-                              : null,
-                        ),
-                        SizedBox(height: 14),
-                      ],
-                    ],
+                    if (repo.access.canDiscount)
+                      ExpansionTile(
+                          tilePadding: EdgeInsets.zero,
+                          title: Text('Add a discount (optional)'),
+                          children: [
+                            TextFormField(
+                              controller: discount,
+                              autovalidateMode:
+                                  AutovalidateMode.onUserInteraction,
+                              enabled: !attempted,
+                              keyboardType: TextInputType.numberWithOptions(
+                                decimal: true,
+                              ),
+                              decoration: InputDecoration(
+                                labelText:
+                                    'Special discount (${selectedPackage()['currency'] ?? 'AED'})',
+                                helperText:
+                                    'Optional. Applied to the package price before tax.',
+                              ),
+                              onChanged: (_) => update(() {}),
+                              validator: (v) {
+                                try {
+                                  final value = Money.parse(
+                                    v?.trim().isEmpty ?? true ? '0' : v!,
+                                  );
+                                  return value >
+                                          (selectedPackage()['price_minor']
+                                                  as int? ??
+                                              0)
+                                      ? 'Discount cannot exceed the package price'
+                                      : null;
+                                } catch (_) {
+                                  return 'Enter an amount with at most two decimal places';
+                                }
+                              },
+                            ),
+                            SizedBox(height: 14),
+                            if (discountValue() > 0) ...[
+                              TextFormField(
+                                controller: discountReason,
+                                enabled: !attempted,
+                                maxLength: 500,
+                                decoration: InputDecoration(
+                                    labelText: 'Discount reason',
+                                    prefixIcon:
+                                        const Icon(CupertinoIcons.doc_text)),
+                                validator: (v) => (v?.trim().isEmpty ?? true)
+                                    ? 'Enter a reason for this discount'
+                                    : null,
+                              ),
+                              SizedBox(height: 14),
+                            ],
+                          ]),
                     if (package != null &&
                         discountValue() <=
                             (selectedPackage()['price_minor'] as int? ?? 0))
@@ -273,12 +300,13 @@ Future<void> showServerOperation(
                       ),
                     SizedBox(height: 14),
                   ],
-                  if (type == 'subscribe' || type == 'transition')
+                  if (type == 'subscribe' ||
+                      (type == 'transition' && action != 'cancel'))
                     CalendarClockField(
                       controller: date,
                       enabled: !attempted,
                       label: type == 'subscribe'
-                          ? 'Membership start date'
+                          ? '3. Start date'
                           : 'Effective date',
                       validator: (v) {
                         final parsed = DateTime.tryParse(v ?? '');
@@ -294,11 +322,15 @@ Future<void> showServerOperation(
                       initialValue: action,
                       decoration: InputDecoration(
                           labelText: 'Action',
-                          prefixIcon: const Icon(Icons.tune_rounded)),
+                          prefixIcon:
+                              const Icon(CupertinoIcons.slider_horizontal_3)),
                       items: [
                         for (final a in [
-                          'pause',
-                          'resume',
+                          if (values['status'] == 'paused')
+                            'resume'
+                          else if (['active', 'expired']
+                              .contains(values['status']))
+                            'pause',
                           if (repo.access.administer) ...['extend', 'cancel'],
                         ])
                           DropdownMenuItem(
@@ -306,8 +338,9 @@ Future<void> showServerOperation(
                             child: Text(displayLabel(a)),
                           ),
                       ],
-                      onChanged:
-                          attempted ? null : (v) => update(() => action = v!),
+                      onChanged: attempted || initialAction != null
+                          ? null
+                          : (v) => update(() => action = v!),
                     ),
                     SizedBox(height: 14),
                     TextFormField(
@@ -315,7 +348,7 @@ Future<void> showServerOperation(
                       enabled: !attempted,
                       decoration: InputDecoration(
                           labelText: 'Reason',
-                          prefixIcon: const Icon(Icons.notes_outlined)),
+                          prefixIcon: const Icon(CupertinoIcons.doc_text)),
                       validator: (v) => (v?.trim().isEmpty ?? true)
                           ? 'A reason is required'
                           : null,
@@ -327,7 +360,7 @@ Future<void> showServerOperation(
                         enabled: !attempted,
                         decoration: InputDecoration(
                             labelText: 'Extension days',
-                            prefixIcon: const Icon(Icons.more_time_rounded)),
+                            prefixIcon: const Icon(CupertinoIcons.calendar)),
                         validator: (v) => (int.tryParse(v ?? '') ?? 0) <= 0
                             ? 'Enter positive whole days'
                             : null,
@@ -344,7 +377,8 @@ Future<void> showServerOperation(
                       enabled: !attempted,
                       decoration: InputDecoration(
                           labelText: 'Amount received',
-                          prefixIcon: const Icon(Icons.payments_outlined)),
+                          prefixIcon:
+                              const Icon(CupertinoIcons.money_dollar_circle)),
                       validator: (v) {
                         try {
                           if (Money.parse(v ?? '') <= 0) {
@@ -361,8 +395,7 @@ Future<void> showServerOperation(
                       initialValue: method,
                       decoration: InputDecoration(
                           labelText: 'Payment method',
-                          prefixIcon: const Icon(
-                              Icons.account_balance_wallet_outlined)),
+                          prefixIcon: const Icon(CupertinoIcons.creditcard)),
                       items: [
                         for (final m in [
                           'cash',

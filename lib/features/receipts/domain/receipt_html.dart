@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../members/member_identity.dart';
 import '../../payments/domain/money.dart';
 
 abstract final class ReceiptHtml {
@@ -100,6 +101,13 @@ Authorized issuer: {{issuer}}</p>
         ?.subtract(const Duration(days: 1));
     final values = <String, Object?>{
       for (final key in placeholders) key: data[key],
+      'package_name': data['invoices'] is List
+          ? '${data['package_name']} — ${(data['invoices'] as List).map((line) => 'Invoice ${line['invoice_id']}: ${Money.format(line['amount_minor'] as int, currency)}').join('; ')}'
+          : data['package_name'],
+      'member_number': memberId(data['member_number']),
+      'member_name': RegExp(r'\{\{\s*member_number\s*\}\}').hasMatch(template)
+          ? data['member_name']
+          : memberNameWithId(data),
       'receipt_id': receipt['id'],
       'receipt_number': receipt['receipt_number'],
       'issued_at': receipt['created_at'],

@@ -2,6 +2,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 abstract interface class OperationsRepository {
+  Future<void> setMembershipDeleted(String subscription, int version,
+      bool deleted, String reason, String operation);
+  Future<Map<String, dynamic>> memberInvoiceQuote(String member);
+  Future<Map<String, dynamic>> payAllInvoices(
+      String member,
+      List<Map<String, dynamic>> invoices,
+      String method,
+      String reference,
+      String operation);
   Future<void> subscribe(
     String member,
     String package,
@@ -48,10 +57,43 @@ class SupabaseOperationsRepository implements OperationsRepository {
   final SupabaseClient client;
   final String gymId;
   @override
+  Future<void> setMembershipDeleted(String subscription, int version,
+      bool deleted, String reason, String operation) async {
+    await client.rpc('set_membership_deleted', params: {
+      'p_gym': gymId,
+      'p_subscription': subscription,
+      'p_expected': version,
+      'p_delete': deleted,
+      'p_reason': reason,
+      'p_operation': operation
+    });
+  }
+
+  @override
+  Future<Map<String, dynamic>> memberInvoiceQuote(String member) async =>
+      Map<String, dynamic>.from(await client.rpc('member_invoice_payment_quote',
+          params: {'p_gym': gymId, 'p_member': member}) as Map);
+  @override
+  Future<Map<String, dynamic>> payAllInvoices(
+          String member,
+          List<Map<String, dynamic>> invoices,
+          String method,
+          String reference,
+          String operation) async =>
+      Map<String, dynamic>.from(
+          await client.rpc('pay_member_invoices', params: {
+        'p_gym': gymId,
+        'p_member': member,
+        'p_invoices': invoices,
+        'p_method': method,
+        'p_reference': reference,
+        'p_operation': operation,
+      }) as Map);
+  @override
   Future<bool> isConfirmed(String operation) async => await client.rpc(
-    'check_operation',
-    params: {'p_gym': gymId, 'p_operation': operation},
-  ) as bool;
+        'check_operation',
+        params: {'p_gym': gymId, 'p_operation': operation},
+      ) as bool;
   @override
   Future<void> changePackage(
     String subscription,
@@ -136,19 +178,20 @@ class SupabaseOperationsRepository implements OperationsRepository {
     String method,
     String reference,
     String operation,
-  ) async => Map<String, dynamic>.from(
-    await client.rpc(
-      'post_payment',
-      params: {
-        'p_gym': gymId,
-        'p_invoice': invoice,
-        'p_amount': amount,
-        'p_method': method,
-        'p_reference': reference,
-        'p_operation': operation,
-      },
-    ) as Map,
-  );
+  ) async =>
+      Map<String, dynamic>.from(
+        await client.rpc(
+          'post_payment',
+          params: {
+            'p_gym': gymId,
+            'p_invoice': invoice,
+            'p_amount': amount,
+            'p_method': method,
+            'p_reference': reference,
+            'p_operation': operation,
+          },
+        ) as Map,
+      );
   @override
   Future<void> transition(
     String subscription,

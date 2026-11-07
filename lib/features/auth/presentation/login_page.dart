@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/config.dart';
 import '../../../core/theme.dart';
 import '../data/auth_repository.dart';
+import '../data/auth_callback.dart';
+import '../data/auth_callback_location.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({
@@ -14,6 +16,7 @@ class LoginPage extends StatefulWidget {
     this.onPasswordSaved,
     this.initialMessage,
     this.initialReset = false,
+    this.passwordSetupCallback,
   });
   final AuthRepository repository;
   final SupabaseClient? recoveryClient;
@@ -21,6 +24,7 @@ class LoginPage extends StatefulWidget {
   final VoidCallback? onPasswordSaved;
   final String? initialMessage;
   final bool initialReset;
+  final AuthCallback? passwordSetupCallback;
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
@@ -31,6 +35,7 @@ class _LoginPageState extends State<LoginPage> {
   final _confirmPassword = TextEditingController();
   bool _busy = false, _obscure = true, _reset = false;
   String? _message;
+  bool _invitationVerified = false;
   @override
   void initState() {
     super.initState();
@@ -54,6 +59,23 @@ class _LoginPageState extends State<LoginPage> {
     });
     try {
       if (widget.recoveryClient != null) {
+        final callback = widget.passwordSetupCallback;
+        if (callback != null && !_invitationVerified) {
+          // Verify only when the employee submits their chosen password.
+          // Merely opening or scanning the email must not use the link.
+          final verified = await widget.recoveryClient!.auth.verifyOTP(
+            tokenHash: callback.passwordToken!,
+            type: callback.parameters['type'] == 'invite'
+                ? OtpType.invite
+                : OtpType.recovery,
+          );
+          if (verified.session == null) {
+            throw const AuthException(
+                'This password setup link could not be verified. Ask your gym administrator for a fresh setup email.');
+          }
+          _invitationVerified = true;
+          clearAuthCallbackLocation();
+        }
         await widget.recoveryClient!.auth.updateUser(
           UserAttributes(
             password: _password.text,

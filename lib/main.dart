@@ -12,6 +12,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SupabaseAuthRepository? repository;
   String? loginMessage;
+  AuthCallback? passwordSetupCallback;
   if (AppConfig.configured) {
     final callback = AuthCallback.parse(Uri.base);
     final handleCallback = kIsWeb && callback.isCallback;
@@ -23,10 +24,13 @@ Future<void> main() async {
     );
     final client = Supabase.instance.client;
     var passwordRecovery = false;
-    if (handleCallback) {
+    if (handleCallback && callback.passwordToken != null) {
+      passwordSetupCallback = callback;
+    } else if (handleCallback) {
       try {
         final response = await client.auth.getSessionFromUrl(callback.uri);
-        passwordRecovery = response.redirectType == 'recovery';
+        passwordRecovery =
+            ['invite', 'recovery'].contains(response.redirectType);
       } catch (_) {
         loginMessage =
             'This invitation or password reset link has expired or could not be verified. Request a new password reset link below.';
@@ -48,5 +52,6 @@ Future<void> main() async {
     client: AppConfig.configured ? Supabase.instance.client : null,
     repository: repository,
     loginMessage: loginMessage,
+    passwordSetupCallback: passwordSetupCallback,
   ));
 }

@@ -96,6 +96,7 @@ void main() {
               syncState: 'synced');
           final key = GlobalKey();
           await tester.pumpWidget(MaterialApp(
+              themeAnimationDuration: Duration.zero,
               theme: dark ? GymTheme.dark : GymTheme.light,
               home: RepaintBoundary(
                   key: key,
@@ -106,7 +107,7 @@ void main() {
           expect(tester.takeException(), isNull,
               reason: '${entry.key} width=$width dark=$dark');
           if (entry.key == 'members') {
-            expect(find.text('Amina Hassan'), findsOneWidget);
+            expect(find.text('Amina Hassan · ID 1024'), findsOneWidget);
             expect(find.text('+971501234567'), findsOneWidget);
           }
           if (!dark && ['members', 'membership_packages'].contains(entry.key)) {
@@ -135,6 +136,7 @@ void main() {
         version: 0,
         syncState: 'synced');
     await tester.pumpWidget(MaterialApp(
+        themeAnimationDuration: Duration.zero,
         theme: GymTheme.light,
         home:
             Scaffold(body: RecordDetails(record: invoice, repository: repo))));
@@ -148,8 +150,44 @@ void main() {
         payload: jsonEncode(fixtures['members']),
         version: 0,
         syncState: 'synced');
+    String? operation;
+    CachedRecord? operationRecord;
     await tester.pumpWidget(MaterialApp(
-        home: Scaffold(body: RecordDetails(record: member, repository: repo))));
+        themeAnimationDuration: Duration.zero,
+        home: Scaffold(
+            body: RecordDetails(
+                record: member,
+                repository: repo,
+                onOperation: (action, record) {
+                  operation = action;
+                  operationRecord = record;
+                }))));
+    await tester.pumpAndSettle();
+    expect(find.text('Memberships (1)'), findsOneWidget);
+    expect(find.text('Payments (0)'), findsOneWidget);
+    expect(find.text('Invoices (1)'), findsOneWidget);
+    expect(find.text('Receipts (0)'), findsOneWidget);
+    await tester.ensureVisible(find.text('New membership'));
+    await tester.tap(find.text('New membership'));
+    expect(operation, 'subscribe');
+    expect(operationRecord!.id, member.id);
+    await tester.tap(find.text('Pay all invoices'));
+    expect(operation, 'pay_all');
+    expect(operationRecord!.id, member.id);
+    await tester.tap(find.text('Pay invoice'));
+    expect(operation, 'pay');
+    expect(operationRecord!.id, invoice.id);
+    await tester.tap(find.text('Invoices (1)'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Invoice'));
+    await tester.tap(find.text('Invoice'));
+    await tester.pumpAndSettle();
+    expect(find.text('Invoice details'), findsOneWidget);
+    await tester.ensureVisible(find.text('Record payment'));
+    await tester.tap(find.text('Record payment'));
+    expect(operation, 'pay');
+    expect(operationRecord!.id, invoice.id);
+    await tester.tap(find.byTooltip('Close details'));
     await tester.pumpAndSettle();
     await tester.runAsync(() => (db.update(db.cachedRecords)
           ..where((r) => r.scope.equals(repo.scope) & r.id.equals('members')))
@@ -157,7 +195,7 @@ void main() {
             payload: Value(jsonEncode(
                 {...fixtures['members']!, 'full_name': 'Amina Updated'})))));
     await tester.pumpAndSettle();
-    expect(find.text('Amina Updated'), findsOneWidget);
+    expect(find.text('Amina Updated · ID 1024'), findsOneWidget);
     final trainerRepo = WorkspaceRepository(
         db,
         const GymAccess(
@@ -167,6 +205,17 @@ void main() {
             gymName: 'GymPro',
             role: GymRole.trainer));
     await tester.pumpWidget(MaterialApp(
+        themeAnimationDuration: Duration.zero,
+        home: Scaffold(
+            body: RecordDetails(record: member, repository: trainerRepo))));
+    await tester.pumpAndSettle();
+    expect(find.text('Memberships (0)'), findsOneWidget);
+    expect(find.textContaining('Invoices ('), findsNothing);
+    expect(find.textContaining('Payments ('), findsNothing);
+    expect(find.textContaining('Receipts ('), findsNothing);
+    expect(find.text('New membership'), findsNothing);
+    await tester.pumpWidget(MaterialApp(
+        themeAnimationDuration: Duration.zero,
         home: Scaffold(
             body: RecordDetails(record: invoice, repository: trainerRepo))));
     await tester.pumpAndSettle();

@@ -2,6 +2,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gym_saas/features/receipts/domain/receipt_html.dart';
 
 void main() {
+  test('Combined receipts show the per-invoice allocation', () {
+    final receipt = ReceiptHtml.sample('Gym');
+    (receipt['snapshot'] as Map)['invoices'] = [
+      {'invoice_id': 'invoice-one', 'amount_minor': 7000},
+      {'invoice_id': 'invoice-two', 'amount_minor': 20000},
+    ];
+    final html = ReceiptHtml.render(ReceiptHtml.defaultDesign, receipt);
+    expect(html, contains('invoice-one: AED 70.00'));
+    expect(html, contains('invoice-two: AED 200.00'));
+  });
   test(
       'HTML receipt uses immutable financial snapshot and escapes member content',
       () {

@@ -16,6 +16,14 @@ site_url = "http://localhost:8080"
 additional_redirect_urls = ["http://localhost:8080/**"]
 enable_signup = true
 
+[auth.email.template.invite]
+subject = "Join your gym team — choose your password"
+content_path = "./supabase/templates/invite.html"
+
+[auth.email.template.recovery]
+subject = "Choose your GymPro password"
+content_path = "./supabase/templates/recovery.html"
+
 [functions.invite-employee]
 verify_jwt = true
 

@@ -52,6 +52,10 @@ String operationErrorMessage(Object error) {
       return 'That username is already in use. Choose another.';
     }
     if (message ==
+        'Employee access assigned, but the password setup email could not be sent. Try again later.') {
+      return message as String;
+    }
+    if (message ==
         'Invitation sent, but gym access could not be assigned. Contact your administrator for reconciliation.') {
       return message as String;
     }

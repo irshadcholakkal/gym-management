@@ -15,6 +15,21 @@ Deno.serve(async (req: Request) => {
     const input = await req.json();
     const { data: allowed, error: permissionError } = await caller.rpc('can_administer', { p_gym: input.gym_id });
     if (permissionError || !allowed) return new Response('{"error":"Administrator permission required"}', { status: 403, headers });
+    if (input.action === 'password_setup') {
+      if (typeof input.user_id !== 'string' || !/^[a-f0-9-]{36}$/i.test(input.user_id)) {
+        return new Response('{"error":"Valid employee required"}', { status: 400, headers });
+      }
+      // Resolve the address from this gym's employee record, never from the request.
+      const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
+      const { data: employee, error: employeeError } = await admin.from('employees')
+        .select('email,access_role').eq('gym_id', input.gym_id).eq('user_id', input.user_id).single();
+      if (employeeError || !employee || employee.access_role === 'owner') {
+        return new Response('{"error":"Employee not available in this gym"}', { status: 404, headers });
+      }
+      const { error: sendError } = await admin.auth.resetPasswordForEmail(employee.email, { redirectTo: `${origin}/` });
+      if (sendError) throw sendError;
+      return new Response(JSON.stringify({ password_setup_sent: true }), { headers });
+    }
     if (!['admin', 'manager', 'trainer', 'receptionist', 'staff'].includes(input.role) ||
       typeof input.full_name !== 'string' || !input.full_name.trim() ||
       typeof input.email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) {
@@ -60,6 +75,15 @@ Deno.serve(async (req: Request) => {
       app_metadata: { ...data.user.app_metadata, employee_gym_id: input.gym_id },
     });
     if (preferenceError) console.error('Employee workspace preference failed', preferenceError.code);
+    if (existingInvite && data.user.user_metadata?.requires_password_setup === true) {
+      const { error: setupError } = await admin.auth.resetPasswordForEmail(input.email.trim().toLowerCase(), {
+        redirectTo: `${origin}/`,
+      });
+      if (setupError) {
+        console.error('Employee password setup email failed', setupError.code);
+        return new Response('{"error":"Employee access assigned, but the password setup email could not be sent. Try again later."}', { status: 409, headers });
+      }
+    }
     return new Response(JSON.stringify({ user_id: data.user.id, invited: !existingInvite, access_assigned: true }), { headers });
   } catch (error) {
     console.error('Invitation failed', error instanceof Error ? error.name : 'unknown');

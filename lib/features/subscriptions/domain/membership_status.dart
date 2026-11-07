@@ -30,6 +30,7 @@ class MembershipStatus {
   }
 
   String get status {
+    if (data['deleted_at'] != null) return 'deleted';
     final raw = data['status']?.toString() ?? 'draft';
     if (raw != 'active') return raw;
     if (days != null && days! <= 0) return 'expired';
@@ -41,7 +42,8 @@ class MembershipStatus {
     if (status == 'paused') {
       return 'Countdown paused · expiry recalculates on resume';
     }
-    if (status == 'cancelled' ||
+    if (status == 'deleted' ||
+        status == 'cancelled' ||
         status == 'draft' ||
         status == 'pending_activation') {
       return '';

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../features/payments/domain/money.dart';
 import 'database/database.dart';
+import '../features/members/member_identity.dart';
 
 String displayLabel(String value) => value
     .replaceAll('_', ' ')
@@ -37,11 +38,21 @@ class RecordLabels {
             ? {}
             : jsonDecode(payload) as Map<String, dynamic>;
       });
-  String member(Map data) =>
-      (data['snapshot'] is Map ? data['snapshot']['member_name'] : null)
-          ?.toString() ??
-      lookup('members', data['member_id'])['full_name']?.toString() ??
-      'Member unavailable';
+  String member(Map data) {
+    final snapshot = data['snapshot'] as Map?;
+    final subscription = lookup('subscriptions', data['subscription_id']);
+    final invoice = lookup('invoices', data['invoice_id']);
+    final member = lookup('members',
+        data['member_id'] ?? subscription['member_id'] ?? invoice['member_id']);
+    return memberNameWithId({
+      ...member,
+      if (snapshot?['member_name'] != null)
+        'full_name': snapshot!['member_name'],
+      if (snapshot?['member_number'] != null)
+        'member_number': snapshot!['member_number'],
+    });
+  }
+
   String package(Map data) {
     final subscription = data['subscription_id'] == null
         ? data
@@ -59,6 +70,8 @@ class RecordLabels {
 
   String title(String kind, Map data) {
     switch (kind) {
+      case 'members':
+        return memberNameWithId(data);
       case 'subscriptions':
         return '${member(data)} · ${package(data)}';
       case 'invoices':
