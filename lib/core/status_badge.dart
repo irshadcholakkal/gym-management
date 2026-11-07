@@ -49,12 +49,19 @@ class StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final color = statusColor(status, dark: dark);
-    return Chip(
-      avatar: Icon(Icons.circle, size: 8, color: color),
-      label: Text(label ?? displayLabel(status)),
-      labelStyle: TextStyle(color: color, fontWeight: FontWeight.w600),
-      backgroundColor: color.withValues(alpha: dark ? .16 : .09),
-      side: BorderSide(color: color.withValues(alpha: .28)),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+          color: color.withValues(alpha: dark ? .14 : .07),
+          borderRadius: BorderRadius.circular(7)),
+      child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.circle, size: 5, color: color),
+            const SizedBox(width: 5),
+            Text(label ?? displayLabel(status),
+                style: TextStyle(
+                    color: color, fontSize: 11, fontWeight: FontWeight.w500)),
+          ])),
     );
   }
 }

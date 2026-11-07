@@ -1218,13 +1218,22 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                     ? 0
                     : (page * 15).clamp(0, records.length);
                 return Card(
+                  color: kind == 'subscriptions'
+                      ? Theme.of(context).scaffoldBackgroundColor
+                      : null,
+                  shape: kind == 'subscriptions'
+                      ? const RoundedRectangleBorder()
+                      : null,
+                  elevation: 0,
                   child: Column(
                     children: [
                       Expanded(
                         child: ListView.separated(
                           itemCount: records.skip(start).take(15).length,
                           separatorBuilder: (context, index) =>
-                              Divider(height: 1),
+                              kind == 'subscriptions'
+                                  ? const SizedBox.shrink()
+                                  : Divider(height: 1),
                           itemBuilder: (context, i) {
                             final r = records[start + i],
                                 m = labels.lookup(kind, r.id);
@@ -1462,6 +1471,45 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                   icon: Icon(Icons.done),
                                 ),
                             ];
+                            if (membership != null) {
+                              final member =
+                                  labels.lookup('members', m['member_id']);
+                              final number = memberId(member['member_number']);
+                              return Card(
+                                margin: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 5),
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 8),
+                                  title: Text(
+                                      member['full_name']?.toString() ??
+                                          'Member',
+                                      style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600)),
+                                  subtitle: Padding(
+                                      padding: const EdgeInsets.only(top: 5),
+                                      child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                                number.isEmpty
+                                                    ? 'ID pending sync'
+                                                    : 'ID $number',
+                                                style: const TextStyle(
+                                                    fontSize: 11)),
+                                            const SizedBox(height: 3),
+                                            Text(labels.subtitle(kind, m),
+                                                style: const TextStyle(
+                                                    fontSize: 11)),
+                                          ])),
+                                  trailing: StatusBadge(membership.status),
+                                  onTap: () => openRecordDetails(context, r,
+                                      repo, widget.photos, const []),
+                                ),
+                              );
+                            }
                             final tile = ListTile(
                               contentPadding: EdgeInsets.symmetric(
                                   horizontal: compact ? 12 : 20,
@@ -1494,36 +1542,13 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                   if (kind == 'employees' &&
                                       m['username'] != null)
                                     'Username: ${m['username']}',
-                                  if (membership != null &&
-                                      membership.countdown.isNotEmpty)
-                                    membership.countdown,
                                 ].join('\n'),
                               ),
-                              trailing: membership != null
-                                  ? Row(
+                              trailing: compact
+                                  ? RecordActionsMenu(actions: actions)
+                                  : Row(
                                       mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                          StatusBadge(membership.status),
-                                          const SizedBox(width: 8),
-                                          OutlinedButton.icon(
-                                              onPressed: () =>
-                                                  openRecordDetails(
-                                                      context,
-                                                      r,
-                                                      repo,
-                                                      widget.photos,
-                                                      actions),
-                                              icon: const Icon(
-                                                  CupertinoIcons.chevron_right,
-                                                  size: 16),
-                                              label: const Text('Open')),
-                                        ])
-                                  : compact
-                                      ? RecordActionsMenu(actions: actions)
-                                      : Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: actions,
-                                        ),
+                                      children: actions),
                               onTap: () => openRecordDetails(
                                   context, r, repo, widget.photos, actions),
                             );
@@ -1532,7 +1557,6 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                               children: [
                                 tile,
                                 if (compact &&
-                                    membership == null &&
                                     actions.any((action) =>
                                         action is! IconButton &&
                                         action is! SizedBox))
