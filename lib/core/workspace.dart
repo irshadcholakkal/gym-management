@@ -1,3 +1,4 @@
+import 'navigation.dart';
 import '../features/subscriptions/membership_deletion.dart';
 import 'status_badge.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
@@ -178,7 +179,7 @@ Future<void> openRecordDetails(
                 } else if (action == 'invoices' || action == 'receipt') {
                   Navigator.of(context)
                       .popUntil((route) => route is! PopupRoute);
-                  context.go(action == 'invoices'
+                  context.navigateTo(action == 'invoices'
                       ? '/payments?subscription=${Uri.encodeQueryComponent(target.id)}'
                       : '/receipts?record=${Uri.encodeQueryComponent(target.id)}');
                 } else {
@@ -322,8 +323,8 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                                 ),
                               ),
                         onTap: () {
-                          context.go(d.$1);
                           if (!wide) Navigator.of(context).pop();
+                          context.navigateTo(d.$1);
                         },
                       ),
                     ),
@@ -522,8 +523,8 @@ class _WorkspaceState extends State<Workspace> with WidgetsBindingObserver {
                         : widget.path == '/subscriptions'
                             ? 2
                             : 0,
-                    onDestinationSelected: (i) =>
-                        context.go(['/', '/members', '/subscriptions'][i]),
+                    onDestinationSelected: (i) => context
+                        .navigateTo(['/', '/members', '/subscriptions'][i]),
                     destinations: [
                       NavigationDestination(
                         icon: Icon(CupertinoIcons.square_grid_2x2),
@@ -570,7 +571,7 @@ class WorkspaceSyncAction extends StatelessWidget {
               tooltip: 'Sync workspace',
               onSelected: (value) {
                 if (value == 'sync') unawaited(sync.sync());
-                if (value == 'center') context.go('/sync');
+                if (value == 'center') context.navigateTo('/sync');
               },
               icon: Badge(
                 isLabelVisible: pending > 0 || status.error != null,
@@ -818,7 +819,7 @@ class Dashboard extends StatelessWidget {
                             ? Theme.of(context).colorScheme.secondaryContainer
                             : Theme.of(context).colorScheme.surface,
                         child: InkWell(
-                            onTap: () => context.go(destination(m.$1)),
+                            onTap: () => context.navigateTo(destination(m.$1)),
                             child: Padding(
                               padding: EdgeInsets.all(compact ? 12 : 16),
                               child: Column(
@@ -903,7 +904,7 @@ class Dashboard extends StatelessWidget {
                           ),
                         ),
                         TextButton(
-                          onPressed: () => context.go('/members'),
+                          onPressed: () => context.navigateTo('/members'),
                           child: Text('View all'),
                         ),
                       ],
@@ -970,12 +971,12 @@ class Dashboard extends StatelessWidget {
                           ),
                         if (repo.access.administer)
                           OutlinedButton.icon(
-                            onPressed: () => context.go('/packages'),
+                            onPressed: () => context.navigateTo('/packages'),
                             icon: Icon(CupertinoIcons.cube_box),
                             label: Text('Manage packages'),
                           ),
                         OutlinedButton.icon(
-                          onPressed: () => context.go('/sync'),
+                          onPressed: () => context.navigateTo('/sync'),
                           icon: Icon(CupertinoIcons.cloud),
                           label: Text('Review sync activity'),
                         ),
@@ -1120,7 +1121,7 @@ class _RecordDirectoryState extends State<RecordDirectory> {
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
-                onPressed: () => context.go(GoRouter.of(context)
+                onPressed: () => context.navigateTo(GoRouter.of(context)
                     .routeInformationProvider
                     .value
                     .uri

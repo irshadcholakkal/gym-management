@@ -1,8 +1,8 @@
+import '../../core/navigation.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/database/database.dart';
 import '../../core/record_labels.dart';
@@ -61,7 +61,7 @@ class _NotificationBellState extends State<NotificationBell> {
                 ),
                 action: SnackBarAction(
                   label: 'View',
-                  onPressed: () => context.go(
+                  onPressed: () => context.navigateTo(
                     Uri(
                       path: '/notifications',
                       queryParameters: {'notification': id},
@@ -79,7 +79,7 @@ class _NotificationBellState extends State<NotificationBell> {
             .length;
         return IconButton(
           tooltip: count == 0 ? 'Notifications' : '$count unread notifications',
-          onPressed: () => context.go('/notifications'),
+          onPressed: () => context.navigateTo('/notifications'),
           icon: Badge(
             isLabelVisible: count > 0,
             label: Text(count > 99 ? '99+' : '$count'),
@@ -169,7 +169,7 @@ class _NotificationCenterState extends State<NotificationCenter> {
           ),
         if (focused != null)
           TextButton(
-            onPressed: () => context.go('/notifications'),
+            onPressed: () => context.navigateTo('/notifications'),
             child: const Text('Show all notifications'),
           ),
         const SizedBox(height: 16),
@@ -282,7 +282,7 @@ class _NotificationCenterState extends State<NotificationCenter> {
                                   label: const Text('View membership'),
                                   onPressed: () {
                                     if (unread) markRead(r);
-                                    context.go(
+                                    context.navigateTo(
                                       Uri(
                                         path: '/subscriptions',
                                         queryParameters: {

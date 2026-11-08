@@ -11,6 +11,7 @@ import '../features/auth/presentation/session_cubit.dart';
 import '../features/auth/presentation/signup_page.dart';
 import '../features/auth/presentation/gym_setup_page.dart';
 import 'theme.dart';
+import 'navigation.dart';
 import 'workspace.dart';
 
 class GymProApp extends StatefulWidget {
@@ -127,7 +128,7 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
                 ? 'Your password is saved. Sign in with your email, employee ID or username.'
                 : widget.loginMessage,
             initialReset: widget.loginMessage != null,
-            onCreateAccount: () => context.go('/register'),
+            onCreateAccount: () => context.navigateTo('/register'),
           ),
         ),
         GoRoute(
@@ -186,28 +187,36 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
             child: child,
           ),
           routes: [
-            for (final path in [
-              '/',
-              '/members',
-              '/packages',
-              '/subscriptions',
-              '/payments',
-              '/receipts',
-              '/employees',
-              '/notifications',
-              '/settings',
-              '/sync',
-            ])
-              GoRoute(
-                path: path,
-                pageBuilder: (_, state) => NoTransitionPage<void>(
-                  key: state.pageKey,
-                  child: WorkspaceContent(
-                    path: path,
-                    queryParameters: state.uri.queryParameters,
-                  ),
-                ),
+            GoRoute(
+              path: '/',
+              pageBuilder: (_, state) => NoTransitionPage<void>(
+                key: state.pageKey,
+                child: const WorkspaceContent(path: '/', queryParameters: {}),
               ),
+              routes: [
+                for (final path in [
+                  '/members',
+                  '/packages',
+                  '/subscriptions',
+                  '/payments',
+                  '/receipts',
+                  '/employees',
+                  '/notifications',
+                  '/settings',
+                  '/sync',
+                ])
+                  GoRoute(
+                    path: path.substring(1),
+                    pageBuilder: (_, state) => NoTransitionPage<void>(
+                      key: state.pageKey,
+                      child: WorkspaceContent(
+                        path: path,
+                        queryParameters: state.uri.queryParameters,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ],
         ),
       ],
