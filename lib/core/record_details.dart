@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../features/members/member_photos.dart';
 import '../features/members/member_identity.dart';
+import '../features/receipts/domain/invoice_html.dart';
 import '../features/payments/domain/money.dart';
 import '../features/subscriptions/domain/membership_status.dart';
 import 'database/database.dart';
@@ -152,6 +153,7 @@ class RecordDetails extends StatelessWidget {
                   ? 'Assigned after sync'
                   : memberId(raw);
             }
+            if (key == 'invoice_number') return InvoiceHtml.number(raw);
             if (raw == null || raw.toString().trim().isEmpty) return '';
             if ([
               'joining_date',
@@ -191,6 +193,7 @@ class RecordDetails extends StatelessWidget {
             ('due_date', 'Payment due', CupertinoIcons.calendar),
             ('created_at', 'Created on', CupertinoIcons.calendar),
             ('receipt_number', 'Receipt number', CupertinoIcons.doc_text),
+            ('invoice_number', 'Invoice number', CupertinoIcons.doc_text),
             ('reference', 'Reference', Icons.tag_outlined),
             ('method', 'Payment method', CupertinoIcons.creditcard),
             ('read_at', 'Read on', CupertinoIcons.envelope_open),
@@ -232,9 +235,11 @@ class RecordDetails extends StatelessWidget {
               _DetailValue(
                   'Balance due',
                   Money.format(
-                      (m['total_minor'] as int) -
-                          (m['paid_minor'] as int? ?? 0) -
-                          (m['credit_minor'] as int? ?? 0),
+                      m['status'] == 'voided'
+                          ? 0
+                          : (m['total_minor'] as int) -
+                              (m['paid_minor'] as int? ?? 0) -
+                              (m['credit_minor'] as int? ?? 0),
                       currency),
                   CupertinoIcons.creditcard),
           ];
@@ -394,6 +399,9 @@ class RecordDetails extends StatelessWidget {
                               return ListTile(
                                   contentPadding: EdgeInsets.zero,
                                   leading: const Icon(CupertinoIcons.doc_text),
+                                  onTap: onOperation == null
+                                      ? null
+                                      : () => onOperation!('invoice', invoice),
                                   title: Text(data['status'] == 'voided'
                                       ? 'Invoice voided'
                                       : 'Balance due: ${Money.format(due, data['currency'] as String? ?? 'AED')}'),
@@ -526,6 +534,12 @@ class _MemberActivityState extends State<_MemberActivity> {
                   label: const Text('New membership'),
                 ),
                 OutlinedButton.icon(
+                  onPressed: () =>
+                      widget.onOperation!('whatsapp', widget.member),
+                  icon: const Icon(CupertinoIcons.chat_bubble_text),
+                  label: const Text('WhatsApp message'),
+                ),
+                OutlinedButton.icon(
                   onPressed: unpaid.isEmpty
                       ? null
                       : () => widget.onOperation!('pay_all', widget.member),
@@ -620,7 +634,11 @@ class _RecordOperations extends StatelessWidget {
         (data['paid_minor'] as int? ?? 0) -
         (data['credit_minor'] as int? ?? 0);
     final actions = <(String, String, IconData)>[
-      if (record.kind == 'invoices' && balance > 0 && data['status'] != 'void')
+      if (record.kind == 'invoices')
+        ('invoice', 'View / print invoice', CupertinoIcons.doc_text),
+      if (record.kind == 'invoices' &&
+          balance > 0 &&
+          !['void', 'voided'].contains(data['status']))
         ('pay', 'Record payment', CupertinoIcons.creditcard),
       if (record.kind == 'receipts')
         ('receipt', 'Open receipt & print', CupertinoIcons.printer),

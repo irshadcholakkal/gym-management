@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gym_saas/core/theme.dart';
 import 'package:gym_saas/features/receipts/data/receipt_design_repository.dart';
 import 'package:gym_saas/features/receipts/domain/receipt_html.dart';
+import 'package:gym_saas/features/receipts/domain/invoice_html.dart';
 import 'package:gym_saas/features/receipts/presentation/receipt_design_editor.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -12,8 +13,11 @@ class UnusedClient implements SupabaseClient {
 }
 
 class MemoryDesignRepository extends ReceiptDesignRepository {
-  MemoryDesignRepository() : super(UnusedClient(), 'gym');
-  ReceiptDesign design = const ReceiptDesign(ReceiptHtml.defaultDesign, 0);
+  MemoryDesignRepository({bool invoice = false})
+      : super(UnusedClient(), 'gym', isInvoice: invoice) {
+    design = ReceiptDesign(defaultDesign, 0);
+  }
+  late ReceiptDesign design;
   @override
   Future<ReceiptDesign> load() async => design;
   @override
@@ -24,6 +28,22 @@ class MemoryDesignRepository extends ReceiptDesignRepository {
 }
 
 void main() {
+  testWidgets('Invoice editor saves independently of the receipt design',
+      (tester) async {
+    final invoice = MemoryDesignRepository(invoice: true);
+    final receipt = MemoryDesignRepository();
+    await tester.pumpWidget(MaterialApp(
+        home: ReceiptDesignEditor(repository: invoice, gymName: 'Gym')));
+    await tester.pumpAndSettle();
+    expect(find.text('Invoice HTML design'), findsOneWidget);
+    final edited = InvoiceHtml.defaultDesign.replaceAll('#222', '#112233');
+    await tester.enterText(find.byType(TextField), edited);
+    await tester.tap(find.text('Save design'));
+    await tester.pumpAndSettle();
+    expect(invoice.design.html, edited);
+    expect(receipt.design.html, ReceiptHtml.defaultDesign);
+    expect(find.text('Invoice design saved for your gym.'), findsOneWidget);
+  });
   testWidgets('Receipt editor saves HTML and reloads it at mobile width',
       (tester) async {
     final repository = MemoryDesignRepository();

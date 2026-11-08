@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../features/payments/domain/money.dart';
 import 'database/database.dart';
 import '../features/members/member_identity.dart';
+import '../features/receipts/domain/invoice_html.dart';
 
 String displayLabel(String value) => value
     .replaceAll('_', ' ')
@@ -75,7 +76,7 @@ class RecordLabels {
       case 'subscriptions':
         return '${member(data)} · ${package(data)}';
       case 'invoices':
-        return 'Invoice · ${member(data)}';
+        return '${data['invoice_number'] == null ? 'Invoice' : InvoiceHtml.number(data['invoice_number'])} · ${member(data)}';
       case 'receipts':
         return 'Receipt #${data['receipt_number']} · ${member(data)}';
       case 'payments':
@@ -96,9 +97,11 @@ class RecordLabels {
       return '${displayDate(data['start_date'])} – ${displayDate(end)}';
     }
     if (kind == 'invoices') {
-      final balance = (data['total_minor'] as int? ?? 0) -
-          (data['paid_minor'] as int? ?? 0) -
-          (data['credit_minor'] as int? ?? 0);
+      final balance = data['status'] == 'voided'
+          ? 0
+          : (data['total_minor'] as int? ?? 0) -
+              (data['paid_minor'] as int? ?? 0) -
+              (data['credit_minor'] as int? ?? 0);
       return '${package(data)} · ${Money.format(balance, data['currency'] as String? ?? 'AED')} due · ${displayDate(data['due_date'])}';
     }
     if (kind == 'receipts') {

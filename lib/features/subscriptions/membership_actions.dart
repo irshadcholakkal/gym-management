@@ -60,6 +60,8 @@ class MembershipActions extends StatelessWidget {
           if (status == 'paused')
             button('resume', 'Resume membership', CupertinoIcons.play_circle),
           button('invoices', 'View invoices', CupertinoIcons.doc_text),
+          button(
+              'whatsapp', 'WhatsApp message', CupertinoIcons.chat_bubble_text),
           if (more.isNotEmpty)
             PopupMenuButton<String>(
                 enabled: enabled,

@@ -6,6 +6,8 @@ import '../features/receipts/presentation/receipt_design_editor.dart';
 import '../features/receipts/presentation/receipt_preview.dart';
 import '../features/receipts/data/receipt_design_repository.dart';
 import '../features/receipts/domain/receipt_html.dart';
+import '../features/receipts/domain/invoice_html.dart';
+import '../features/receipts/data/invoice_document_repository.dart';
 import '../features/employees/employee_access.dart';
 import '../features/install/install_app_card.dart';
 import 'dart:async';
@@ -62,6 +64,34 @@ const destinations = <(String, String, IconData)>[
   ('/settings', 'Settings', CupertinoIcons.slider_horizontal_3),
 ];
 
+Future<void> showInvoiceDocument(
+    BuildContext context, CachedRecord record) async {
+  final repo = context.read<WorkspaceRepository>();
+  if (!repo.access.finances) return;
+  try {
+    final client = context.read<SupabaseClient>();
+    final invoice = await InvoiceDocumentRepository(client, repo.access.gymId)
+        .load(record.id);
+    final design = await ReceiptDesignRepository(client, repo.access.gymId,
+            isInvoice: true)
+        .load();
+    final supported = await previewReceiptHtml(
+        InvoiceHtml.render(design.html, invoice),
+        InvoiceHtml.number(invoice['invoice_number']));
+    if (!supported && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Open GymPro in your web browser to view and print the HTML invoice.')));
+    }
+  } catch (_) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Unable to generate the invoice. Reconnect and try again.')));
+    }
+  }
+}
+
 Future<void> openRecordDetails(
         BuildContext context,
         CachedRecord record,
@@ -78,7 +108,11 @@ Future<void> openRecordDetails(
                   ? const []
                   : actions.whereType<IconButton>().toList(),
               onOperation: (action, target) {
-                if (action == 'pay_all') {
+                if (action == 'invoice') {
+                  showInvoiceDocument(context, target);
+                } else if (action == 'whatsapp') {
+                  showRecordWhatsApp(context, repository, target);
+                } else if (action == 'pay_all') {
                   showPayAllInvoices(context, target);
                 } else if (action == 'delete' || action == 'restore') {
                   showMembershipDeletion(context, target,
@@ -1348,9 +1382,16 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                   ),
                                   icon: Icon(CupertinoIcons.ellipsis),
                                 ),
+                              if (kind == 'invoices' && repo.access.finances)
+                                IconButton(
+                                    tooltip: 'View / print invoice',
+                                    icon: const Icon(CupertinoIcons.doc_text),
+                                    onPressed: () =>
+                                        showInvoiceDocument(context, r)),
                               if (kind == 'invoices' &&
                                   repo.access.finances &&
-                                  m['status'] != 'paid')
+                                  !['paid', 'voided', 'void']
+                                      .contains(m['status']))
                                 IconButton(
                                   tooltip: 'Record payment',
                                   onPressed: () => showServerOperation(
@@ -2064,6 +2105,8 @@ class SettingsPanel extends StatelessWidget {
     final access = context.read<WorkspaceRepository>().access;
     return ListView(
       children: [
+        const ReceiptDesignCard(invoice: true),
+        const SizedBox(height: 16),
         ReceiptDesignCard(),
         SizedBox(height: 16),
         PushNotificationSettingsCard(),

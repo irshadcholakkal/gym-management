@@ -26,7 +26,7 @@
     const previousFocus=document.activeElement;
     function button(label,action){const b=document.createElement('button');b.textContent=label;b.style.cssText='padding:10px 14px;min-height:44px;border:1px solid #dce3ed;border-radius:10px;background:#ebf2ff;color:#1c5ebf;cursor:pointer';b.onclick=action;toolbar.append(b);return b;}
     const print=button('Print / Save PDF',()=>{frame.contentWindow.focus();frame.contentWindow.print();});
-    button('Download HTML',()=>{const url=URL.createObjectURL(new Blob([frame.srcdoc],{type:'text/html'}));const link=document.createElement('a');link.href=url;link.download='gympro-receipt.html';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+    button('Download HTML',()=>{const url=URL.createObjectURL(new Blob([frame.srcdoc],{type:'text/html'}));const link=document.createElement('a');link.href=url;link.download=(title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'' )||'gympro-document')+'.html';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
     const close=()=>{overlay.remove();previousFocus?.focus();};
     button('Close',close);
     overlay.addEventListener('keydown',event=>{if(event.key==='Escape')close();});

@@ -1,8 +1,124 @@
+import 'dart:convert';
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
+import '../../core/database/database.dart';
+import '../../core/sync/workspace_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/record_labels.dart';
 import '../members/member_identity.dart';
 import 'domain/membership_status.dart';
+
+Map<String, String> membershipWhatsAppTemplates(
+    {required Map subscription,
+    required Map member,
+    required String package,
+    required String gym,
+    DateTime? now}) {
+  final status = MembershipStatus(subscription, now: now);
+  final name = member['full_name']?.toString() ?? 'Member';
+  final id = memberId(member['member_number']);
+  final identity = id.isEmpty ? '' : ' Member ID: $id.';
+  final lastDay = status.end?.subtract(const Duration(days: 1));
+  final expiry = lastDay == null ? null : displayDate(lastDay);
+  final start = displayDate(subscription['start_date']);
+  final (title, body) = switch (status.status) {
+    'expiring_soon' => (
+        'Renewal reminder',
+        'your $package membership at $gym ${status.days == 1 ? 'ends today' : 'is ending soon'}${expiry == null ? '' : ' (valid through $expiry)'}. Please contact us to renew.'
+      ),
+    'expired' => (
+        'Membership expired',
+        'your $package membership at $gym has expired${expiry == null ? '' : ' (last valid day: $expiry)'}. Please contact us to renew. We look forward to welcoming you back!'
+      ),
+    'paused' => (
+        'Membership paused',
+        'your $package membership at $gym is paused. Contact us when you are ready to resume; your expiry date will be recalculated when it resumes.'
+      ),
+    'scheduled_renewal' => (
+        'Upcoming membership',
+        'your $package membership at $gym is scheduled${start.isEmpty ? '' : ' to start on $start'}${expiry == null ? '' : ' and is valid through $expiry'}. We look forward to seeing you!'
+      ),
+    'cancelled' => (
+        'Membership cancelled',
+        'your $package membership at $gym has been cancelled. Contact us if you have any questions.'
+      ),
+    'draft' || 'pending_activation' => (
+        'Membership pending',
+        'your $package membership at $gym is awaiting activation. Contact us for the next steps.'
+      ),
+    'active' => (
+        'Active membership',
+        'your $package membership at $gym is active${expiry == null ? '' : ' and valid through $expiry'}. We look forward to seeing you!'
+      ),
+    _ => (
+        'Member update',
+        'this is a message from $gym. Please contact us if you need help with your membership.'
+      ),
+  };
+  return {
+    title: 'Hi $name, $body$identity',
+    if (['active', 'expiring_soon', 'scheduled_renewal']
+        .contains(status.status))
+      'Membership confirmation':
+          'Hi $name, your $package membership at $gym is confirmed${start.isEmpty ? '' : ' from $start'}${expiry == null ? '' : ' through $expiry'}. Thank you!$identity',
+    'General message':
+        'Hi $name, this is $gym. Please contact us if you need any assistance.$identity'
+  };
+}
+
+Future<void> showRecordWhatsApp(BuildContext context,
+    WorkspaceRepository repository, CachedRecord target) async {
+  if (!repository.access.finances) return;
+  try {
+    final records =
+        await repository.watchKinds(['members', 'subscriptions']).first;
+    final data = jsonDecode(target.payload) as Map;
+    final memberKey = target.kind == 'members' ? target.id : data['member_id'];
+    final person = records
+        .where((r) => r.kind == 'members' && r.id == memberKey)
+        .firstOrNull;
+    if (person == null) throw StateError('Member unavailable');
+    final member = jsonDecode(person.payload) as Map;
+    Map subscription = data;
+    if (target.kind == 'members') {
+      final memberships = records
+          .where((r) => r.kind == 'subscriptions')
+          .map((r) => jsonDecode(r.payload) as Map)
+          .where((s) => s['member_id'] == memberKey && s['deleted_at'] == null)
+          .toList();
+      int rank(Map s) => switch (MembershipStatus(s).status) {
+            'active' || 'expiring_soon' => 0,
+            'paused' => 1,
+            'scheduled_renewal' => 2,
+            'expired' => 3,
+            _ => 4
+          };
+      memberships.sort((a, b) {
+        final order = rank(a).compareTo(rank(b));
+        return order != 0
+            ? order
+            : (b['end_exclusive'] ?? '')
+                .toString()
+                .compareTo((a['end_exclusive'] ?? '').toString());
+      });
+      subscription = memberships.firstOrNull ?? {'status': 'no_membership'};
+    }
+    if (!context.mounted) return;
+    await showMembershipWhatsApp(context,
+        subscription: subscription,
+        member: member,
+        package:
+            (subscription['package_snapshot'] as Map?)?['name']?.toString() ??
+                'gym',
+        gym: repository.access.gymName);
+  } catch (_) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Unable to prepare the member message. Sync and try again.')));
+    }
+  }
+}
 
 Future<void> showMembershipWhatsApp(
   BuildContext context, {
@@ -11,31 +127,13 @@ Future<void> showMembershipWhatsApp(
   required String package,
   required String gym,
 }) async {
-  final status = MembershipStatus(subscription);
-  final name = memberNameWithId(member, fallback: 'Member');
-  final lastDay = status.end?.subtract(const Duration(days: 1));
-  final expiry = lastDay == null ? 'the expiry date' : displayDate(lastDay);
-  final templates = <String, String>{
-    if (status.status == 'active' || status.status == 'expiring_soon')
-      'Before expiry':
-          'Hi $name, a reminder from $gym: your $package membership is valid through $expiry (${status.countdown.toLowerCase()}). Please contact us to renew. Thank you!',
-    if (status.status == 'expired')
-      'Expired':
-          'Hi $name, your $package membership at $gym expired after $expiry. We would love to welcome you back! Please contact us to renew.',
-    if (status.status == 'paused')
-      'Paused':
-          'Hi $name, your $package membership at $gym is paused. Please contact us when you are ready to resume. Your expiry will be recalculated on resume.',
-    if (status.status == 'active' ||
-        status.status == 'expiring_soon' ||
-        status.status == 'scheduled_renewal')
-      'Renewed':
-          'Hi $name, thank you for renewing your $package membership at $gym! Your membership runs from ${displayDate(subscription['start_date'])} through $expiry. We look forward to seeing you!',
-    'Status update':
-        'Hi $name, your $package membership status at $gym is ${displayLabel(status.status).toLowerCase()}. Please contact us if you need assistance.',
-  };
+  final templates = membershipWhatsAppTemplates(
+      subscription: subscription, member: member, package: package, gym: gym);
   var selected = templates.keys.first;
   final message = TextEditingController(text: templates[selected]);
-  final phone = TextEditingController(text: member['phone']?.toString() ?? '');
+  final whatsapp = member['whatsapp']?.toString().trim() ?? '';
+  final phone = TextEditingController(
+      text: whatsapp.isEmpty ? member['phone']?.toString() ?? '' : whatsapp);
   final form = GlobalKey<FormState>();
   String? error;
   final route = DialogRoute<void>(
@@ -46,7 +144,7 @@ Future<void> showMembershipWhatsApp(
               contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
               actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
               actionsOverflowButtonSpacing: 8,
-              title: const Text('WhatsApp member'),
+              title: const Text('WhatsApp message'),
               content: SizedBox(
                   width: 480,
                   child: Form(
@@ -106,7 +204,7 @@ Future<void> showMembershipWhatsApp(
                     onPressed: () => Navigator.pop(context),
                     child: const Text('Cancel')),
                 FilledButton.icon(
-                    icon: const Icon(Icons.open_in_new),
+                    icon: const Icon(CupertinoIcons.chat_bubble_text),
                     label: const Text('Open WhatsApp'),
                     onPressed: () async {
                       if (!form.currentState!.validate()) return;
