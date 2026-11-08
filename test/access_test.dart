@@ -11,11 +11,13 @@ void main() {
   );
   test('Trainer cannot open finances or staff administration', () {
     expect(access(GymRole.trainer).allows('/payments'), false);
+    expect(access(GymRole.trainer).allows('/reports'), false);
     expect(access(GymRole.trainer).allows('/employees'), false);
     expect(access(GymRole.trainer).editMembers, false);
   });
   test('Reception can collect but cannot administer staff', () {
     expect(access(GymRole.receptionist).allows('/payments'), true);
+    expect(access(GymRole.receptionist).allows('/reports'), true);
     expect(access(GymRole.receptionist).allows('/employees'), false);
   });
 }

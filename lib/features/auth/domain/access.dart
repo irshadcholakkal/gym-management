@@ -40,6 +40,7 @@ class GymAccess {
       return administer;
     }
     if (path.startsWith('/payments') ||
+        path.startsWith('/reports') ||
         path.startsWith('/receipts') ||
         path.startsWith('/subscriptions') &&
             role != GymRole.trainer &&

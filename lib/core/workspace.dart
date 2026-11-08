@@ -1,4 +1,5 @@
 import 'navigation.dart';
+import '../features/reports/presentation/reports_page.dart';
 import '../features/subscriptions/membership_deletion.dart';
 import 'status_badge.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
@@ -59,6 +60,7 @@ const destinations = <(String, String, IconData)>[
   ('/subscriptions', 'Memberships', CupertinoIcons.calendar),
   ('/payments', 'Payments', CupertinoIcons.creditcard),
   ('/receipts', 'Receipts', CupertinoIcons.doc_text),
+  ('/reports', 'Reports', CupertinoIcons.chart_bar_square),
   ('/employees', 'Team', CupertinoIcons.person_crop_rectangle),
   ('/notifications', 'Notifications', CupertinoIcons.bell),
   ('/sync', 'Sync center', CupertinoIcons.cloud),
@@ -600,6 +602,7 @@ class WorkspaceContent extends StatelessWidget {
     if (path == '/') return const Dashboard();
     if (path == '/sync') return const SyncCenter();
     if (path == '/settings') return const SettingsPanel();
+    if (path == '/reports') return const ReportsPage();
     if (path == '/notifications') {
       return NotificationCenter(queryParameters: queryParameters);
     }

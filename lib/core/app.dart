@@ -200,6 +200,7 @@ class _GymProAppState extends State<GymProApp> with WidgetsBindingObserver {
                   '/subscriptions',
                   '/payments',
                   '/receipts',
+                  '/reports',
                   '/employees',
                   '/notifications',
                   '/settings',
