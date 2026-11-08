@@ -3,6 +3,7 @@ const CACHE = 'gympro-shell-development-v1';
 const BASE = new URL('./', self.location.href);
 const ASSETS = ['index.html', 'flutter_bootstrap.js', 'flutter.js', 'main.dart.js',
   'manifest.json', 'favicon.png', 'icons/Icon-192.png', 'icons/Icon-512.png',
+  'vendor/html2pdf.bundle.min.js',
   'assets/AssetManifest.bin.json', 'assets/FontManifest.json', 'assets/NOTICES',
   'assets/fonts/MaterialIcons-Regular.otf', 'sqlite3.wasm', 'drift_worker.dart.js',
   'canvaskit/canvaskit.js', 'canvaskit/canvaskit.wasm',

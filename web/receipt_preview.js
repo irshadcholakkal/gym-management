@@ -32,4 +32,79 @@
     overlay.addEventListener('keydown',event=>{if(event.key==='Escape')close();});
     overlay.append(toolbar,frame);document.body.append(overlay);print.focus();
   };
+
+  window.gymproReceiptSharePdf = async (html, title) => {
+    window.gymproReceiptPreview(html, title);
+    const overlay = document.getElementById('gympro-receipt-preview');
+    const toolbar = overlay.firstElementChild;
+    const frame = overlay.querySelector('iframe');
+    // Render at a stable A4 width even on small phones.
+    frame.style.flex = 'none';
+    frame.style.width = '794px';
+    frame.style.height = '1123px';
+    overlay.style.overflow = 'auto';
+    toolbar.style.position = 'sticky';
+    toolbar.style.top = '0';
+    toolbar.style.zIndex = '1';
+    const status = document.createElement('span');
+    status.setAttribute('role', 'status');
+    status.textContent = 'Preparing PDF…';
+    toolbar.append(status);
+    try {
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Document load timed out')), 15000);
+        frame.addEventListener('load', () => { clearTimeout(timeout); resolve(); }, { once: true });
+      });
+      if (typeof window.html2pdf !== 'function') throw new Error('PDF renderer unavailable');
+      const doc = frame.contentDocument;
+      await doc.fonts.ready;
+      const blob = await window.html2pdf().set({
+        margin: 10,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 2, backgroundColor: '#ffffff', logging: false,
+          // html2pdf moves the body into its own document. Carry the saved
+          // template's stylesheet into the isolated canvas clone as well.
+          onclone: cloned => {
+            doc.head.querySelectorAll('style').forEach(style =>
+              cloned.head.append(style.cloneNode(true)));
+          },
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'], avoid: ['tr', 'header', 'footer'] },
+      }).from(doc.body).outputPdf('blob');
+      if (!overlay.isConnected) return;
+      const filename = (title.replace(/[^a-z0-9_-]+/gi, '-') || 'document') + '.pdf';
+      const file = new File([blob], filename, { type: 'application/pdf' });
+      const canShare = !!navigator.share && !!navigator.canShare?.({ files: [file] });
+      status.textContent = canShare
+        ? 'PDF ready. Choose WhatsApp, then select the member.'
+        : 'PDF ready. Download it and attach it in WhatsApp.';
+      const download = () => {
+        const url = URL.createObjectURL(file);
+        const link = document.createElement('a');
+        link.href = url; link.download = filename; link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      };
+      const button = document.createElement('button');
+      button.textContent = canShare ? 'Share PDF via WhatsApp' : 'Download PDF';
+      button.style.cssText = 'padding:10px 14px;min-height:44px;border:0;border-radius:10px;background:#167a43;color:white;cursor:pointer';
+      button.onclick = async () => {
+        if (!canShare) { download(); return; }
+        try {
+          await navigator.share({ files: [file], title });
+        } catch (error) {
+          if (error.name !== 'AbortError') {
+            status.textContent = 'Sharing is unavailable. Download the PDF and attach it in WhatsApp.';
+            button.textContent = 'Download PDF'; button.onclick = download;
+          }
+        }
+      };
+      toolbar.append(button);
+      button.focus();
+    } catch (error) {
+      status.textContent = 'Unable to create PDF. Use Print / Save PDF or try again.';
+      throw error;
+    }
+  };
 })();

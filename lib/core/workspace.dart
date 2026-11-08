@@ -13,8 +13,6 @@ import '../features/employees/employee_access.dart';
 import '../features/install/install_app_card.dart';
 import 'dart:async';
 import 'dart:convert';
-import 'package:url_launcher/url_launcher.dart';
-import '../features/receipts/domain/document_whatsapp.dart';
 
 import '../features/notifications/notification_center.dart';
 import '../features/subscriptions/domain/membership_status.dart';
@@ -79,33 +77,18 @@ Future<void> shareDocumentWhatsApp(
         ? await InvoiceDocumentRepository(client, repo.access.gymId)
             .load(record.id)
         : await operations.receipt(record.id);
-    final data = jsonDecode(record.payload) as Map;
-    final records = await repo.watchKinds(['members']).first;
-    final person = records
-        .where((r) =>
-            r.kind == 'members' &&
-            r.id == (document['member_id'] ?? data['member_id']))
-        .firstOrNull;
-    final member = person == null
-        ? <String, dynamic>{}
-        : jsonDecode(person.payload) as Map;
-    final preferred = member['whatsapp']?.toString().trim() ?? '';
-    final number = whatsappPhone(preferred.isNotEmpty
-        ? preferred
-        : (member['phone'] ??
-                (document['snapshot'] as Map)['member_phone'] ??
-                '')
-            .toString());
-    if (number == null) {
+    final design = await ReceiptDesignRepository(client, repo.access.gymId,
+            isInvoice: invoice)
+        .load();
+    final html = invoice
+        ? InvoiceHtml.render(design.html, document)
+        : ReceiptHtml.render(design.html, document);
+    final title = invoice
+        ? InvoiceHtml.number(document['invoice_number'])
+        : 'Receipt-${document['receipt_number']}';
+    if (!await shareReceiptHtmlPdf(html, title)) {
       throw const FormatException(
-          'Add a valid WhatsApp number with country code to this member first.');
-    }
-    final uri = Uri.https('wa.me', '/$number', {
-      'text': documentWhatsAppMessage(document, invoice: invoice),
-    });
-    if (!await launchUrl(uri,
-        mode: LaunchMode.externalApplication, webOnlyWindowName: '_self')) {
-      throw StateError('Unable to open WhatsApp');
+          'HTML PDF sharing is unavailable on this device. Open GymPro in your browser to share or download the PDF.');
     }
   } catch (error) {
     if (context.mounted) {

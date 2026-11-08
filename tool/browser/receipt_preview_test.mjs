@@ -20,7 +20,7 @@ try {
   await mkdir(new URL('../../artifacts/',import.meta.url),{recursive:true});
   await page.screenshot({path:fileURLToPath(new URL('../../artifacts/receipt-html-preview.png',import.meta.url))});
   const download=page.waitForEvent('download');await page.getByRole('button',{name:'Download HTML',exact:true}).click();
-  assert.equal((await download).suggestedFilename(),'gympro-receipt.html');
+  assert.equal((await download).suggestedFilename(),'receipt-design-preview.html');
   await page.getByRole('button',{name:'Close',exact:true}).click();
   assert.equal(await page.locator('#gympro-receipt-preview').count(),0);
   console.log('PASS Receipt preview renders at mobile width, blocks active content, downloads HTML and closes.');
