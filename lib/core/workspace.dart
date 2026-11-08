@@ -12,6 +12,8 @@ import '../features/employees/employee_access.dart';
 import '../features/install/install_app_card.dart';
 import 'dart:async';
 import 'dart:convert';
+import 'package:url_launcher/url_launcher.dart';
+import '../features/receipts/domain/document_whatsapp.dart';
 
 import '../features/notifications/notification_center.dart';
 import '../features/subscriptions/domain/membership_status.dart';
@@ -63,6 +65,56 @@ const destinations = <(String, String, IconData)>[
   ('/sync', 'Sync center', CupertinoIcons.cloud),
   ('/settings', 'Settings', CupertinoIcons.slider_horizontal_3),
 ];
+
+Future<void> shareDocumentWhatsApp(
+    BuildContext context, CachedRecord record) async {
+  final repo = context.read<WorkspaceRepository>();
+  if (!repo.access.finances) return;
+  try {
+    final invoice = record.kind == 'invoices';
+    final client = context.read<SupabaseClient>();
+    final operations = context.read<OperationsRepository>();
+    final document = invoice
+        ? await InvoiceDocumentRepository(client, repo.access.gymId)
+            .load(record.id)
+        : await operations.receipt(record.id);
+    final data = jsonDecode(record.payload) as Map;
+    final records = await repo.watchKinds(['members']).first;
+    final person = records
+        .where((r) =>
+            r.kind == 'members' &&
+            r.id == (document['member_id'] ?? data['member_id']))
+        .firstOrNull;
+    final member = person == null
+        ? <String, dynamic>{}
+        : jsonDecode(person.payload) as Map;
+    final preferred = member['whatsapp']?.toString().trim() ?? '';
+    final number = whatsappPhone(preferred.isNotEmpty
+        ? preferred
+        : (member['phone'] ??
+                (document['snapshot'] as Map)['member_phone'] ??
+                '')
+            .toString());
+    if (number == null) {
+      throw const FormatException(
+          'Add a valid WhatsApp number with country code to this member first.');
+    }
+    final uri = Uri.https('wa.me', '/$number', {
+      'text': documentWhatsAppMessage(document, invoice: invoice),
+    });
+    if (!await launchUrl(uri,
+        mode: LaunchMode.externalApplication, webOnlyWindowName: '_self')) {
+      throw StateError('Unable to open WhatsApp');
+    }
+  } catch (error) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(error is FormatException
+              ? error.message
+              : 'Unable to share the document. Check your connection and try again.')));
+    }
+  }
+}
 
 Future<void> showInvoiceDocument(
     BuildContext context, CachedRecord record) async {
@@ -1382,6 +1434,15 @@ class _RecordDirectoryState extends State<RecordDirectory> {
                                   ),
                                   icon: Icon(CupertinoIcons.ellipsis),
                                 ),
+                              if (['invoices', 'receipts'].contains(kind) &&
+                                  repo.access.finances)
+                                IconButton(
+                                    tooltip:
+                                        'Send ${kind == 'invoices' ? 'invoice' : 'receipt'} via WhatsApp',
+                                    icon: const Icon(
+                                        CupertinoIcons.chat_bubble_text),
+                                    onPressed: () =>
+                                        shareDocumentWhatsApp(context, r)),
                               if (kind == 'invoices' && repo.access.finances)
                                 IconButton(
                                     tooltip: 'View / print invoice',

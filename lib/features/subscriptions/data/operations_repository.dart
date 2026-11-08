@@ -2,6 +2,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 abstract interface class OperationsRepository {
+  Future<Map<String,dynamic>> planChangeQuote(String subscription,String package);
+  Future<Map<String,dynamic>> applyPlanChange(String subscription,String package,Map<String,dynamic> quote,String reason,String operation);
   Future<void> setMembershipDeleted(String subscription, int version,
       bool deleted, String reason, String operation);
   Future<Map<String, dynamic>> memberInvoiceQuote(String member);
@@ -56,6 +58,13 @@ class SupabaseOperationsRepository implements OperationsRepository {
   SupabaseOperationsRepository(this.client, this.gymId);
   final SupabaseClient client;
   final String gymId;
+  @override
+  Future<Map<String,dynamic>> planChangeQuote(String subscription,String package) async => Map<String,dynamic>.from(
+    await client.rpc('quote_plan_change',params:{'p_gym':gymId,'p_subscription':subscription,'p_package':package}) as Map);
+  @override
+  Future<Map<String,dynamic>> applyPlanChange(String subscription,String package,Map<String,dynamic> quote,String reason,String operation) async => Map<String,dynamic>.from(
+    await client.rpc('apply_plan_change',params:{'p_gym':gymId,'p_subscription':subscription,'p_package':package,
+      'p_quote':quote,'p_reason':reason,'p_operation':operation}) as Map);
   @override
   Future<void> setMembershipDeleted(String subscription, int version,
       bool deleted, String reason, String operation) async {

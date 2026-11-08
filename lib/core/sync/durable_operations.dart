@@ -15,6 +15,12 @@ class DurableOperations implements OperationsRepository {
   final OperationsRepository inner;
   final WorkspaceRepository workspace;
   @override
+  Future<Map<String,dynamic>> planChangeQuote(String subscription,String package) => inner.planChangeQuote(subscription,package);
+  @override
+  Future<Map<String,dynamic>> applyPlanChange(String subscription,String package,Map<String,dynamic> quote,String reason,String operation) =>
+    _command('apply_plan_change',subscription,operation,{'subscription':subscription,'package':package,'quote':quote,'reason':reason},
+      (id)=>inner.applyPlanChange(subscription,package,quote,reason,id));
+  @override
   Future<void> setMembershipDeleted(String subscription, int version,
           bool deleted, String reason, String operation) =>
       _command(

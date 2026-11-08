@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
 
 import '../features/subscriptions/data/operations_repository.dart';
+import '../features/subscriptions/plan_change_dialog.dart';
 import 'database/database.dart';
 import 'sync/sync_engine.dart';
 import 'sync/workspace_repository.dart';
@@ -17,6 +18,7 @@ Future<void> showAdjustment(
   bool packageChange = false,
   bool deactivate = false,
 }) async {
+  if(packageChange){await showPlanChange(context,record);return;}
   final operations = context.read<OperationsRepository>(),
       repo = context.read<WorkspaceRepository>(),
       sync = context.read<SyncEngine>();
