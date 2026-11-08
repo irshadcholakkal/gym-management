@@ -21,7 +21,8 @@ class _ReportsPageState extends State<ReportsPage> {
   final form = GlobalKey<FormState>();
   late final TextEditingController year;
   late int month;
-  bool yearly = false, busy = false;
+  bool yearly = false, custom = false, busy = false;
+  late DateTimeRange dates;
   PeriodReport? report;
   String? error;
 
@@ -31,6 +32,9 @@ class _ReportsPageState extends State<ReportsPage> {
     final now = DateTime.now().toUtc().add(const Duration(hours: 4));
     year = TextEditingController(text: '${now.year}');
     month = now.month;
+    dates = DateTimeRange(
+        start: DateTime(now.year, now.month),
+        end: DateTime(now.year, now.month, now.day));
   }
 
   @override
@@ -51,8 +55,10 @@ class _ReportsPageState extends State<ReportsPage> {
       report = null;
     });
     try {
-      final result = await repository.generate(
-          int.parse(year.text.trim()), yearly ? null : month);
+      final result = custom
+          ? await repository.generateRange(dates.start, dates.end)
+          : await repository.generate(
+              int.parse(year.text.trim()), yearly ? null : month);
       if (mounted) setState(() => report = result);
     } catch (exception) {
       if (mounted) {
@@ -63,6 +69,24 @@ class _ReportsPageState extends State<ReportsPage> {
       }
     } finally {
       if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> selectDates() async {
+    final selected = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(1900),
+      lastDate: DateTime(9998, 12, 31),
+      initialDateRange: dates,
+      initialEntryMode: DatePickerEntryMode.calendar,
+      helpText: 'Select report dates',
+      saveText: 'Use dates',
+    );
+    if (mounted && selected != null) {
+      setState(() {
+        dates = selected;
+        report = null;
+      });
     }
   }
 
@@ -121,8 +145,7 @@ class _ReportsPageState extends State<ReportsPage> {
     }
     final current = report;
     return ListView(children: [
-      Text('Monthly & yearly reports',
-          style: Theme.of(context).textTheme.titleLarge),
+      Text('Reports by period', style: Theme.of(context).textTheme.titleLarge),
       const SizedBox(height: 8),
       const Text(
           'Choose a period and generate a full report, then download PDF, Excel or CSV. Sync pending changes first.'),
@@ -134,35 +157,46 @@ class _ReportsPageState extends State<ReportsPage> {
               runSpacing: 12,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                SegmentedButton<bool>(
+                SegmentedButton<String>(
                   segments: const [
-                    ButtonSegment(value: false, label: Text('Monthly')),
-                    ButtonSegment(value: true, label: Text('Yearly'))
+                    ButtonSegment(value: 'monthly', label: Text('Monthly')),
+                    ButtonSegment(value: 'yearly', label: Text('Yearly')),
+                    ButtonSegment(value: 'custom', label: Text('Custom')),
                   ],
-                  selected: {yearly},
+                  selected: {
+                    custom
+                        ? 'custom'
+                        : yearly
+                            ? 'yearly'
+                            : 'monthly'
+                  },
                   onSelectionChanged: busy
                       ? null
                       : (value) => setState(() {
-                            yearly = value.first;
+                            yearly = value.first == 'yearly';
+                            custom = value.first == 'custom';
                             report = null;
                           }),
                 ),
-                SizedBox(
-                    width: 110,
-                    child: TextFormField(
-                      controller: year,
-                      enabled: !busy,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Year'),
-                      onChanged: (_) => setState(() => report = null),
-                      validator: (value) {
-                        final parsed = int.tryParse(value?.trim() ?? '');
-                        return parsed == null || parsed < 1900 || parsed > 9998
-                            ? '1900–9998'
-                            : null;
-                      },
-                    )),
-                if (!yearly)
+                if (!custom)
+                  SizedBox(
+                      width: 110,
+                      child: TextFormField(
+                        controller: year,
+                        enabled: !busy,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(labelText: 'Year'),
+                        onChanged: (_) => setState(() => report = null),
+                        validator: (value) {
+                          final parsed = int.tryParse(value?.trim() ?? '');
+                          return parsed == null ||
+                                  parsed < 1900 ||
+                                  parsed > 9998
+                              ? '1900–9998'
+                              : null;
+                        },
+                      )),
+                if (!yearly && !custom)
                   SizedBox(
                       width: 170,
                       child: DropdownButtonFormField<int>(
@@ -183,6 +217,16 @@ class _ReportsPageState extends State<ReportsPage> {
                                   report = null;
                                 }),
                       )),
+                if (custom)
+                  SizedBox(
+                      width: 320,
+                      child: OutlinedButton.icon(
+                        onPressed: busy ? null : selectDates,
+                        icon: const Icon(Icons.calendar_month_outlined),
+                        label: Text(
+                            '${DateFormat('dd MMM yyyy').format(dates.start)} to ${DateFormat('dd MMM yyyy').format(dates.end)}'),
+                      )),
+                if (custom) const Text('Start and end dates are included.'),
                 FilledButton.icon(
                     onPressed: busy ? null : generate,
                     icon: const Icon(Icons.assessment_outlined),

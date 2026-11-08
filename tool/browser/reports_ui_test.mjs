@@ -39,11 +39,14 @@ try {
     else if (url.pathname === '/auth/v1/user') data = user;
     else if (url.pathname === '/rest/v1/gym_users') data = [{ gym_id: id(1), user_id: user.id, role: 'owner', active: true, gyms: { name: 'Report Gym' } }];
     else if (url.pathname === '/rest/v1/rpc/pull_changes') data = { changes: [], cursor: 1, has_more: false };
-    else if (url.pathname === '/rest/v1/rpc/get_period_report') {
+    else if (url.pathname === '/rest/v1/rpc/get_period_report' || url.pathname === '/rest/v1/rpc/get_date_range_report') {
       const args = request.postDataJSON(); requests.push(args);
       data = structuredClone(fixture);
-      data.start_date = `${args.p_year}-${String(args.p_month || 1).padStart(2, '0')}-01`;
-      data.end_exclusive = new Date(Date.UTC(args.p_year + (args.p_month ? 0 : 1), args.p_month || 0, 1)).toISOString().slice(0, 10);
+      data.start_date = args.p_start || `${args.p_year}-${String(args.p_month || 1).padStart(2, '0')}-01`;
+      data.end_exclusive = args.p_end
+        ? new Date(new Date(args.p_end+'T00:00:00Z').getTime()+86400000).toISOString().slice(0,10)
+        : new Date(Date.UTC(args.p_year + (args.p_month ? 0 : 1), args.p_month || 0, 1)).toISOString().slice(0, 10);
+      data.report_type = args.p_start ? 'custom' : args.p_month ? 'monthly' : 'yearly';
       for (const key of ['invoices', 'payments', 'reversals', 'receipts', 'members', 'memberships']) {
         for (const row of data[key]) row.date = data.start_date;
       }
@@ -80,8 +83,18 @@ try {
   await page.getByRole('button', { name: 'Generate report', exact: true }).waitFor();
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= 390));
   await page.screenshot({ path: fileURLToPath(new URL('../../artifacts/reports-mobile.png', import.meta.url)) });
+  await page.getByText('Custom',{exact:true}).click();
+  await page.getByRole('button',{name:/\d{2} [A-Za-z]+ \d{4} to/}).click();
+  await page.getByRole('button',{name:'Use dates',exact:true}).click();
+  await page.getByRole('button',{name:'Generate report',exact:true}).click();
+  await page.getByRole('button',{name:'Download PDF',exact:true}).waitFor();
+  assert.ok(requests.at(-1).p_start);assert.ok(requests.at(-1).p_end);
+  const customDownload=page.waitForEvent('download');
+  await page.getByRole('button',{name:'Export Excel',exact:true}).click();
+  assert.ok((await customDownload).suggestedFilename().includes('-to-'));
+  await page.screenshot({path:fileURLToPath(new URL('../../artifacts/reports-custom-mobile.png',import.meta.url))});
   assert.deepEqual(errors, []);
-  console.log('PASS Monthly/yearly reporting, real PDF/Excel/CSV downloads, and desktop/mobile layout with simulated backend.');
+  console.log('PASS Monthly/yearly/custom calendar reporting, real PDF/Excel/CSV downloads, and desktop/mobile layout with simulated backend.');
 } catch (error) {
   await mkdir(new URL('../../artifacts/', import.meta.url), { recursive: true });
   await page.screenshot({ path: fileURLToPath(new URL('../../artifacts/reports-browser-failure.png', import.meta.url)) });

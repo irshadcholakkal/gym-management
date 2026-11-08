@@ -118,6 +118,20 @@ PeriodReport reportFixture({bool yearly = false}) => PeriodReport({
     });
 
 void main() {
+  test('Custom ranges retain both selected dates and break down across years',
+      () {
+    final report = reportFixture();
+    report.data.addAll({
+      'report_type': 'custom',
+      'start_date': '2025-12-20',
+      'end_exclusive': '2026-02-04'
+    });
+    expect(report.yearly, isFalse);
+    expect(report.label, '20 Dec 2025 to 03 Feb 2026');
+    expect(report.filename, 'gym-report-2025-12-20-to-2026-02-03');
+    expect(report.monthlyBreakdown.map((r) => r['month']).toSet(),
+        {'2025-12', '2026-01', '2026-02'});
+  });
   test('Empty yearly periods keep twelve months and export zero totals', () {
     final report = PeriodReport({
       'gym_name': 'Empty gym',

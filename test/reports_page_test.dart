@@ -14,6 +14,21 @@ import 'period_report_test.dart' show reportFixture;
 class FakeReports extends ReportsRepository {
   FakeReports(super.client, super.gymId);
   final requests = <(int, int?)>[];
+  final ranges = <(DateTime, DateTime)>[];
+  @override
+  Future<PeriodReport> generateRange(DateTime start, DateTime end) async {
+    ranges.add((start, end));
+    final report = reportFixture();
+    report.data.addAll({
+      'report_type': 'custom',
+      'start_date': start.toIso8601String().substring(0, 10),
+      'end_exclusive': DateTime(end.year, end.month, end.day + 1)
+          .toIso8601String()
+          .substring(0, 10)
+    });
+    return report;
+  }
+
   @override
   Future<PeriodReport> generate(int year, int? month) async {
     requests.add((year, month));
@@ -66,6 +81,25 @@ void main() {
     await tester.pumpAndSettle();
     expect(source.requests.last, (2026, null));
     expect(find.text('Report Gym · 2026'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Custom'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TextFormField), findsNothing);
+    await tester.tap(find.byIcon(Icons.calendar_month_outlined));
+    await tester.pumpAndSettle();
+    expect(find.byType(DateRangePickerDialog), findsOneWidget);
+    await tester.tap(find.text('15').hitTestable().first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('18').hitTestable().first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Use dates'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Generate report'));
+    await tester.pumpAndSettle();
+    expect(source.ranges, hasLength(1));
+    expect(source.ranges.single.$1.day, 15);
+    expect(source.ranges.single.$2.day, 18);
+    expect(find.text('Download PDF'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });

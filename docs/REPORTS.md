@@ -6,6 +6,14 @@ year and optional month, then choose **Generate report**. Download PDF, Excel
 has one worksheet per section with numeric amounts, frozen headers and filters.
 CSV is one document with section headings and protected text values.
 
+For specific dates, choose **Custom**, tap the date range button and select
+the start and end dates on the calendar. Tap **Use dates**, then
+**Generate report**. Both selected dates are included; selecting the same date
+twice generates a single-day report. Custom ranges can cross months and years,
+and all export formats show the selected dates in the report and filename.
+Apply `202611080004_custom_date_reports.sql` to enable custom dates on the
+server. Monthly and yearly reports share the same date-range engine.
+
 The preview shows up to 50 rows per section; exports include all rows. Empty
 periods can also be exported. Generating requires an internet connection and
 financial operations access. Sync local pending changes first.

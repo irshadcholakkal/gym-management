@@ -32,10 +32,15 @@ class PeriodReport {
   String get generatedAt => data['generated_at'] as String;
   DateTime get start => DateTime.parse(data['start_date'] as String);
   DateTime get end => DateTime.parse(data['end_exclusive'] as String);
-  bool get yearly => end.difference(start).inDays > 31;
-  String get label => DateFormat(yearly ? 'yyyy' : 'MMMM yyyy').format(start);
-  String get filename =>
-      'gym-report-${DateFormat(yearly ? 'yyyy' : 'yyyy-MM').format(start)}';
+  bool get custom => data['report_type'] == 'custom';
+  bool get yearly => !custom && end.difference(start).inDays > 31;
+  DateTime get lastDay => DateTime(end.year, end.month, end.day - 1);
+  String get label => custom
+      ? '${DateFormat('dd MMM yyyy').format(start)} to ${DateFormat('dd MMM yyyy').format(lastDay)}'
+      : DateFormat(yearly ? 'yyyy' : 'MMMM yyyy').format(start);
+  String get filename => custom
+      ? 'gym-report-${DateFormat('yyyy-MM-dd').format(start)}-to-${DateFormat('yyyy-MM-dd').format(lastDay)}'
+      : 'gym-report-${DateFormat(yearly ? 'yyyy' : 'yyyy-MM').format(start)}';
   static int minor(Object? value) => (value as num? ?? 0).toInt();
   List<ReportRow> rows(String key) => (data[key] as List? ?? [])
       .map((row) => Map<String, dynamic>.from(row as Map))
@@ -122,10 +127,10 @@ class PeriodReport {
   }
 
   List<ReportRow> get monthlyBreakdown => [
-        for (var month = start.month;
-            month <= (yearly ? 12 : start.month);
-            month++)
-          ..._totals('${start.year}-${month.toString().padLeft(2, '0')}'),
+        for (var date = DateTime(start.year, start.month);
+            date.isBefore(end);
+            date = DateTime(date.year, date.month + 1))
+          ..._totals(DateFormat('yyyy-MM').format(date)),
       ];
 
   static const totalColumns = [
